@@ -117,6 +117,22 @@ class SyncService:
                     if upload.status != "completed":
                         raise RuntimeError("Indexación no completada: " + upload.status)
 
+                    # Algunas subidas no conservan los atributos; se aseguran aquí,
+                    # porque son los que permiten reconstruir el listado sin manifiesto.
+                    if not getattr(upload, "attributes", None):
+                        try:
+                            self.client.vector_stores.files.update(
+                                vector_store_id=store,
+                                file_id=upload.id,
+                                attributes={
+                                    "name": filename,
+                                    "mime_type": target_mime,
+                                    "url": url,
+                                },
+                            )
+                        except Exception:
+                            pass
+
                     # Solo eliminar la versión antigua tras indexar exitosamente la nueva
                     if previous:
                         self.client.vector_stores.files.delete(
@@ -204,6 +220,15 @@ def list_indexed_documents(client=None, limit: int = 100) -> list:
             continue
         file_id = getattr(item, "id", "")
         attrs = _attributes_of(item)
+        if not attrs:
+            # El listado puede no incluir aún los atributos: se pide el detalle.
+            try:
+                detail = client.vector_stores.files.retrieve(
+                    vector_store_id=store, file_id=file_id
+                )
+                attrs = _attributes_of(detail)
+            except Exception:
+                pass
         name = str(attrs.get("name") or "")
         mime = str(attrs.get("mime_type") or "")
         url = str(attrs.get("url") or "")
