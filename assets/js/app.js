@@ -185,6 +185,12 @@ async function loadDocuments(animate = true) {
   const r = await api.documents();
   state.documents = r.documents || [];
   renderDocuments(animate);
+  const note = el('doc-note');
+  if (note) {
+    note.textContent = r.source === 'vector_store'
+      ? 'Recuperados desde el índice en OpenAI (sin historial local).'
+      : 'Archivos indexados desde una carpeta autorizada de Google Drive.';
+  }
 }
 
 /* ------------------------------------------------------------------ consulta */

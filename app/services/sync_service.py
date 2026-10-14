@@ -81,7 +81,7 @@ class SyncService:
                     stats["unchanged"] += 1
                     continue
                 try:
-                    raw, filename, _ = self.drive.get_bytes(item)
+                    raw, filename, target_mime = self.drive.get_bytes(item)
                     if not raw:
                         raise ValueError("El archivo está vacío")
 
@@ -93,10 +93,23 @@ class SyncService:
                     ) as temp:
                         temp.write(raw)
                         path = Path(temp.name)
+                    url = item.get("webViewLink") or (
+                        "https://docs.google.com/document/d/" + drive_id + "/edit"
+                        if item["mimeType"] == "application/vnd.google-apps.document"
+                        else "https://drive.google.com/file/d/" + drive_id + "/view"
+                    )
                     try:
                         with path.open("rb") as fh:
                             upload = self.client.vector_stores.files.upload_and_poll(
-                                vector_store_id=store, file=fh
+                                vector_store_id=store,
+                                file=(filename, fh),
+                                # Los atributos permiten reconstruir el listado
+                                # desde el Vector Store si el manifiesto se pierde.
+                                attributes={
+                                    "name": filename,
+                                    "mime_type": target_mime,
+                                    "url": url,
+                                },
                             )
                     finally:
                         path.unlink(missing_ok=True)
@@ -115,13 +128,7 @@ class SyncService:
                         "modified_time": item.get("modifiedTime"),
                         "mime_type": item["mimeType"],
                         "openai_file_id": upload.id,
-                        "url": item.get("webViewLink")
-                        or (
-                            "https://docs.google.com/document/d/" + drive_id + "/edit"
-                            if item["mimeType"]
-                            == "application/vnd.google-apps.document"
-                            else "https://drive.google.com/file/d/" + drive_id + "/view"
-                        ),
+                        "url": url,
                     }
                     self.save_manifest(manifest)
                     stats["updated" if previous else "added"] += 1
@@ -146,3 +153,76 @@ class SyncService:
             }
         finally:
             _LOCK.release()
+
+
+_MIME_BY_EXT = {
+    ".pdf": "application/pdf",
+    ".txt": "text/plain",
+    ".md": "text/markdown",
+    ".csv": "text/csv",
+    ".json": "application/json",
+    ".html": "text/html",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".doc": "application/msword",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+}
+
+
+def _mime_from_name(name: str) -> str:
+    return _MIME_BY_EXT.get(Path(name).suffix.lower(), "")
+
+
+def _attributes_of(item) -> dict:
+    raw = getattr(item, "attributes", None)
+    if isinstance(raw, dict):
+        return raw
+    dump = getattr(raw, "model_dump", None)
+    if callable(dump):
+        try:
+            return dump(exclude_none=True)
+        except Exception:
+            return {}
+    return {}
+
+
+def list_indexed_documents(client=None, limit: int = 100) -> list:
+    """Recupera los documentos indexados directamente desde el Vector Store.
+
+    Pensado para entornos donde el manifiesto local es efímero (p. ej. Vercel):
+    lista los archivos realmente presentes en OpenAI, sin necesitar Google Drive
+    ni el manifiesto. Usa los ``attributes`` guardados al subir; si no existen
+    (subidas antiguas), obtiene el nombre del propio archivo en OpenAI.
+    """
+    client = client or OpenAI(api_key=settings.openai_api_key)
+    store = settings.vector_store_id or read_manifest().get("vector_store_id")
+    if not store:
+        return []
+
+    documents = []
+    for item in client.vector_stores.files.list(vector_store_id=store, limit=limit):
+        if getattr(item, "status", "") not in ("", "completed"):
+            continue
+        file_id = getattr(item, "id", "")
+        attrs = _attributes_of(item)
+        name = str(attrs.get("name") or "")
+        mime = str(attrs.get("mime_type") or "")
+        url = str(attrs.get("url") or "")
+        if not name:
+            try:
+                name = getattr(client.files.retrieve(file_id), "filename", "") or ""
+            except Exception:
+                name = ""
+        if not mime:
+            mime = _mime_from_name(name)
+        documents.append(
+            {
+                "name": name or file_id,
+                "modified_time": None,
+                "mime_type": mime,
+                "openai_file_id": file_id,
+                "url": url,
+                "recovered": True,
+            }
+        )
+    documents.sort(key=lambda d: d["name"].lower())
+    return documents
