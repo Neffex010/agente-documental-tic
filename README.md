@@ -51,7 +51,7 @@ python run.py
 
 Abre <http://127.0.0.1:5000>. Usa **Sincronizar desde Drive** para autenticar Google, descargar/exportar los archivos autorizados e indexarlos. La primera ejecución abre el navegador OAuth en la computadora donde está corriendo Python. Después escribe preguntas sobre el contenido. Para ensayar recuperación, desactiva **File Search (RAG)** y repite exactamente la misma pregunta.
 
-**Importante:** la sincronización usa una solicitud HTTP en localhost. Si estableces `LOCAL_ADMIN_KEY`, proporciona la cabecera `X-Admin-Key` mediante Thunder Client para `/api/sync` (el botón web no envía claves administrativas). Ejecuta el backend en `127.0.0.1`, no en `0.0.0.0`.
+**Importante:** en `localhost` la sincronización funciona directamente. Si defines `LOCAL_ADMIN_KEY`, escríbela en el campo **«Clave administrativa»** de la interfaz (o envíala como cabecera `X-Admin-Key`); es obligatoria fuera de localhost. Ejecuta el backend en `127.0.0.1`, no en `0.0.0.0`.
 
 ## 5. Endpoints
 
@@ -132,7 +132,7 @@ El flujo OAuth Desktop abre un navegador y **no** funciona en serverless. Para i
 1. Crea una **cuenta de servicio** en Google Cloud y habilita Google Drive API.
 2. Comparte la carpeta de Drive con el email de la cuenta de servicio (permiso de lector).
 3. Pega el JSON completo de la cuenta de servicio en `GOOGLE_SERVICE_ACCOUNT_JSON` (una sola línea).
-4. Define `LOCAL_ADMIN_KEY` y llama: `POST /api/sync` con la cabecera `X-Admin-Key: <clave>`.
+4. Define `LOCAL_ADMIN_KEY` y escribe esa misma clave en el campo **«Clave administrativa»** de la interfaz (o llama a `POST /api/sync` con la cabecera `X-Admin-Key: <clave>`).
 
 ### 8.5 Limitaciones honestas en serverless
 

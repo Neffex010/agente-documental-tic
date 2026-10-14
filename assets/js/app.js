@@ -255,12 +255,16 @@ async function sync() {
   setLoading(button, true, 'Sincronizando…');
   setMessage('Sincronizando documentos…');
   try {
-    const r = await api.sync();
+    const r = await api.sync(el('admin-key')?.value.trim());
     await loadDocuments();
     const summary = `Sincronización: ${r.stats.added} nuevos, ${r.stats.updated} actualizados, ${r.stats.removed} eliminados, ${r.stats.unchanged} sin cambios. Errores: ${r.stats.errors.length}.`;
     setMessage(summary);
     notify(summary);
   } catch (e) {
+    if (/administrativa|localhost/i.test(e.message)) {
+      el('admin-key')?.closest('details')?.setAttribute('open', '');
+      el('admin-key')?.focus();
+    }
     setMessage(e.message, true);
     notify(e.message, 'danger');
   } finally {
@@ -322,6 +326,14 @@ el('doc-filter')?.addEventListener('input', () => renderDocuments(false));
 el('doc-sort')?.addEventListener('change', () => renderDocuments(false));
 el('copy-answer')?.addEventListener('click', copyAnswer);
 document.addEventListener('keydown', onKeydown);
+
+const adminKey = el('admin-key');
+if (adminKey) {
+  try { adminKey.value = sessionStorage.getItem('admin-key') || ''; } catch (_) {}
+  adminKey.addEventListener('input', () => {
+    try { sessionStorage.setItem('admin-key', adminKey.value.trim()); } catch (_) {}
+  });
+}
 
 updateCharCount();
 api

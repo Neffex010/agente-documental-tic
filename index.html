@@ -64,8 +64,15 @@
               </div>
             </div>
 
+            <details class="sync-key mt-3">
+              <summary class="small text-body-secondary">Clave administrativa (despliegue remoto)</summary>
+              <input type="password" id="admin-key" class="form-control form-control-sm mt-2"
+                placeholder="X-Admin-Key" autocomplete="off" aria-label="Clave administrativa">
+              <p class="small text-body-secondary mt-2 mb-0">Solo necesaria en Vercel o fuera de localhost.</p>
+            </details>
+
             <button type="button" id="sync" class="btn btn-outline-primary focus-ring w-100 mt-3">Sincronizar desde Drive</button>
-            <p class="small text-body-secondary mt-2 mb-0">La primera sincronización abrirá OAuth en el equipo donde corre Python. Uso exclusivamente local.</p>
+            <p class="small text-body-secondary mt-2 mb-0">La primera sincronización abrirá OAuth en el equipo donde corre Python. En remoto, usa la clave administrativa.</p>
           </div>
         </section>
       </div>
