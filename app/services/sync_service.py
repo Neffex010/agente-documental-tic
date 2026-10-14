@@ -49,6 +49,71 @@ class SyncService:
         manifest["vector_store_id"] = vector_id
         return vector_id
 
+    def _file_attributes(self, store: str, item) -> dict:
+        """Atributos de un archivo del store, consultando el detalle si hace falta."""
+        attrs = _attributes_of(item)
+        if attrs:
+            return attrs
+        try:
+            detail = self.client.vector_stores.files.retrieve(
+                vector_store_id=store, file_id=item.id
+            )
+            return _attributes_of(detail)
+        except Exception:
+            return {}
+
+    def _reconcile_from_store(self, docs: dict, store: str) -> int:
+        """Reconstruye el mapa de documentos a partir del Vector Store.
+
+        Necesario cuando el manifiesto local no está disponible (Vercel): sin
+        esto, cada sincronización subiría otra vez todos los archivos. Usa los
+        atributos guardados al indexar (``drive_id`` y ``modified_time``).
+        Devuelve cuántos documentos se recuperaron.
+        """
+        restored = 0
+        for item in self.client.vector_stores.files.list(
+            vector_store_id=store, limit=100
+        ):
+            attrs = self._file_attributes(store, item)
+            drive_id = str(attrs.get("drive_id") or "")
+            if not drive_id:
+                continue
+            docs[drive_id] = {
+                "name": str(attrs.get("name") or ""),
+                "modified_time": attrs.get("modified_time") or None,
+                "mime_type": str(attrs.get("mime_type") or ""),
+                "openai_file_id": item.id,
+                "url": str(attrs.get("url") or ""),
+            }
+            restored += 1
+        return restored
+
+    def _purge_orphans(self, docs: dict, store: str) -> int:
+        """Elimina restos de versiones anteriores que ya no corresponden a nada.
+
+        Solo toca archivos con atributos de nombre pero sin ``drive_id`` (los
+        creados por versiones antiguas); nunca elimina algo indexado por la
+        versión actual, que siempre guarda ``drive_id``.
+        """
+        known = {d.get("openai_file_id") for d in docs.values()}
+        removed = 0
+        for item in self.client.vector_stores.files.list(
+            vector_store_id=store, limit=100
+        ):
+            if item.id in known:
+                continue
+            attrs = self._file_attributes(store, item)
+            if not attrs.get("name") or attrs.get("drive_id"):
+                continue
+            try:
+                self.client.vector_stores.files.delete(
+                    vector_store_id=store, file_id=item.id
+                )
+                removed += 1
+            except Exception:
+                pass
+        return removed
+
     def sync(self):
         if not _LOCK.acquire(blocking=False):
             raise RuntimeError("Ya existe una sincronización en curso")
@@ -56,6 +121,11 @@ class SyncService:
             manifest = self.load_manifest()
             docs = manifest.setdefault("documents", {})
             store = self.get_store(manifest)
+            if not docs:
+                # Sin manifiesto local (p. ej. en Vercel) el estado se reconstruye
+                # desde el propio Vector Store: así la sincronización es
+                # incremental y no vuelve a subir todo como duplicados.
+                self._reconcile_from_store(docs, store)
             self.save_manifest(manifest)
             source = self.drive.list_files(settings.drive_folder_id)
 
@@ -98,18 +168,21 @@ class SyncService:
                         if item["mimeType"] == "application/vnd.google-apps.document"
                         else "https://drive.google.com/file/d/" + drive_id + "/view"
                     )
+                    # Atributos que permiten reconstruir el estado y el listado
+                    # desde el Vector Store cuando el manifiesto local no existe.
+                    attributes = {
+                        "name": filename,
+                        "mime_type": target_mime,
+                        "url": url,
+                        "drive_id": drive_id,
+                        "modified_time": item.get("modifiedTime") or "",
+                    }
                     try:
                         with path.open("rb") as fh:
                             upload = self.client.vector_stores.files.upload_and_poll(
                                 vector_store_id=store,
                                 file=(filename, fh),
-                                # Los atributos permiten reconstruir el listado
-                                # desde el Vector Store si el manifiesto se pierde.
-                                attributes={
-                                    "name": filename,
-                                    "mime_type": target_mime,
-                                    "url": url,
-                                },
+                                attributes=attributes,
                             )
                     finally:
                         path.unlink(missing_ok=True)
@@ -124,11 +197,7 @@ class SyncService:
                             self.client.vector_stores.files.update(
                                 vector_store_id=store,
                                 file_id=upload.id,
-                                attributes={
-                                    "name": filename,
-                                    "mime_type": target_mime,
-                                    "url": url,
-                                },
+                                attributes=attributes,
                             )
                         except Exception:
                             pass
@@ -161,6 +230,9 @@ class SyncService:
                     stats["removed"] += 1
                 except Exception as exc:
                     stats["errors"].append({"file": drive_id, "error": str(exc)})
+
+            # Restos de versiones anteriores que quedaron dentro del store.
+            stats["removed"] += self._purge_orphans(docs, store)
 
             return {
                 "vector_store_id": store,
