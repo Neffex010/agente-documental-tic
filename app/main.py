@@ -14,15 +14,29 @@ app = FastAPI(title="Archivo TIC IA", version="1.0.0")
 app.mount("/assets", StaticFiles(directory=ROOT / "assets"), name="assets")
 
 def local_only(request: Request):
-    """Defensa básica para el laboratorio; no equivale a autenticación pública."""
+    """Acceso a sincronización: loopback local o clave administrativa válida.
+
+    En local se mantiene la defensa por IP de loopback. En despliegues remotos
+    (p. ej. Vercel) se permite el acceso solo si se envía la cabecera
+    ``X-Admin-Key`` correcta, configurada en ``LOCAL_ADMIN_KEY``.
+    """
     host = request.client.host if request.client else ""
     try:
-        if not ip_address(host).is_loopback: raise ValueError()
+        loopback = ip_address(host).is_loopback
     except ValueError:
-        raise HTTPException(status_code=403, detail="Sincronización disponible solo desde localhost")
+        loopback = False
     key = settings.local_admin_key
-    if key and request.headers.get("X-Admin-Key") != key:
-        raise HTTPException(status_code=401, detail="Clave administrativa incorrecta")
+    provided = request.headers.get("X-Admin-Key", "")
+    if loopback:
+        if key and provided != key:
+            raise HTTPException(status_code=401, detail="Clave administrativa incorrecta")
+        return
+    if key and provided == key:
+        return
+    raise HTTPException(
+        status_code=403,
+        detail="Sincronización disponible solo desde localhost o con clave administrativa",
+    )
 
 @app.get("/")
 def index():

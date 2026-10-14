@@ -8,13 +8,16 @@ El alumno comprenderá que una organización necesita consultar documentos propi
 
 ## Arquitectura
 
-- `app/main.py`: FastAPI, endpoints REST, frontend estático y protección local de sincronización.
+- `app/main.py`: FastAPI, endpoints REST, frontend estático y protección de sincronización.
 - `app/core/config.py`: configuración y secretos cargados desde `.env`.
+- `app/core/storage.py`: persistencia del manifiesto (local o directorio escribible).
 - `app/models/documento.py`: modelos de solicitud y respuesta.
-- `app/services/drive_service.py`: OAuth Desktop, listado limitado a una carpeta y descarga/exportación de archivos.
+- `app/services/drive_service.py`: credenciales (OAuth Desktop, cuenta de servicio o token), listado limitado a una carpeta y descarga/exportación de archivos.
 - `app/services/sync_service.py`: Vector Store, manifiesto de archivos, altas, cambios y bajas.
 - `app/services/agent_service.py`: Responses API + File Search y fuentes verificadas por anotaciones de archivo.
 - `index.html` y `assets/`: interfaz Bootstrap 5 y clases JavaScript.
+- `run.py`: arranque local con Uvicorn.
+- `vercel.json`: configuración del despliegue (entrypoint y archivos incluidos).
 - `data/manifest.json`: estado local del índice (no se publica).
 
 ## 1. Requisitos
@@ -43,7 +46,7 @@ Edita `.env`: define `OPENAI_API_KEY`, un `OPENAI_MODEL` compatible con File Sea
 ## 4. Ejecutar localmente
 
 ```powershell
-python app.py
+python run.py
 ```
 
 Abre <http://127.0.0.1:5000>. Usa **Sincronizar desde Drive** para autenticar Google, descargar/exportar los archivos autorizados e indexarlos. La primera ejecución abre el navegador OAuth en la computadora donde está corriendo Python. Después escribe preguntas sobre el contenido. Para ensayar recuperación, desactiva **File Search (RAG)** y repite exactamente la misma pregunta.
@@ -84,15 +87,58 @@ pytest -q
 
 Las pruebas son locales y no requieren claves reales ni consumen OpenAI.
 
-## 8. Git/GitHub y reto autónomo Vercel
+## 8. Git/GitHub y despliegue en Vercel
+
+El proyecto conserva su uso local (OAuth Desktop y `data/manifest.json`), pero ahora incluye lo necesario para desplegarse en Vercel:
+
+- `run.py` es el arranque local; Vercel detecta la app en `app/main.py` (entrypoint de FastAPI).
+- `vercel.json` fija el entrypoint (`app/main.py`) e incluye `index.html` y `assets/**` en el bundle.
+- `app/core/storage.py` escribe el manifiesto en un directorio escribible (con respaldo al temporal) para no fallar en un sistema de archivos de solo lectura.
+- `app/services/drive_service.py` acepta credenciales por variable de entorno, sin navegador.
+- `POST /api/sync` permite acceso desde cualquier origen **solo** si se envía la cabecera `X-Admin-Key` correcta.
+
+### 8.1 Publicar el repositorio
 
 ```powershell
-git init
 git add .
-git commit -m "chore: estructura inicial del agente documental"
+git commit -m "feat: preparar despliegue en Vercel"
+git push
 ```
 
-Publica solamente el código; confirma `.gitignore`. **NO publiques este proyecto en Vercel sin adaptaciones de seguridad.** OAuth Desktop, `token.json`, `manifest.json`, la ausencia de sesiones de usuario y el endpoint de preguntas no son adecuados para Internet abierto. Para producción, investiga OAuth tipo **Web application**, redirecciones autorizadas, sesiones, almacenamiento persistente de tokens, control de acceso documental por usuario, protección del endpoint `/api/ask`, persistencia compartida del índice y cuotas. Los archivos locales de una función serverless pueden ser efímeros. Las variables de entorno deben configurarse en la plataforma, nunca en el frontend.
+### 8.2 Desplegar
+
+1. Entra a <https://vercel.com/new> e importa el repositorio de GitHub.
+2. Framework: **Other** (Vercel detecta FastAPI). No requiere Build Command.
+3. En **Settings → Environment Variables** define las variables de la tabla siguiente.
+4. Deploy. La URL resultante sirve la interfaz y los endpoints `/api/*`.
+
+### 8.3 Variables de entorno en Vercel
+
+| Variable | Obligatoria | Descripción |
+|---|---|---|
+| `OPENAI_API_KEY` | Sí | Clave de OpenAI. |
+| `OPENAI_MODEL` | No | Modelo con File Search (por defecto `gpt-4.1-mini`). |
+| `VECTOR_STORE_ID` | Recomendada | Si la defines, `/api/ask` funciona sin sincronizar. |
+| `GOOGLE_DRIVE_FOLDER_ID` | Para sincronizar | ID de la carpeta de Drive. |
+| `LOCAL_ADMIN_KEY` | Para sincronizar | Clave secreta que habilita `/api/sync` en remoto. |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Para sincronizar | JSON de cuenta de servicio en una sola línea. |
+| `GOOGLE_TOKEN_JSON` | Alternativa | Token de usuario autorizado (`token.json`) en una línea. |
+| `DATA_DIR` | No | Directorio escribible (p. ej. `/tmp`). |
+
+### 8.4 Sincronizar en Vercel (opcional)
+
+El flujo OAuth Desktop abre un navegador y **no** funciona en serverless. Para indexar desde Vercel:
+
+1. Crea una **cuenta de servicio** en Google Cloud y habilita Google Drive API.
+2. Comparte la carpeta de Drive con el email de la cuenta de servicio (permiso de lector).
+3. Pega el JSON completo de la cuenta de servicio en `GOOGLE_SERVICE_ACCOUNT_JSON` (una sola línea).
+4. Define `LOCAL_ADMIN_KEY` y llama: `POST /api/sync` con la cabecera `X-Admin-Key: <clave>`.
+
+### 8.5 Limitaciones honestas en serverless
+
+- El manifiesto en `/tmp` es **efímero**: se pierde entre instancias frías, así que `/api/documents` puede aparecer vacío. La consulta RAG (`/api/ask`) sigue funcionando con `VECTOR_STORE_ID`. Para persistencia duradera usa almacenamiento externo (Vercel Blob desde una función Node, o una base de datos).
+- `maxDuration` está en 60 s; sincronizar muchos archivos puede agotarlo (amplíalo en un plan superior).
+- No hay usuarios ni sesiones: `POST /api/ask` queda abierto. No subas documentos confidenciales y protege el endpoint antes de un uso real.
 
 ## 9. Costos y privacidad
 

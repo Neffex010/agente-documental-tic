@@ -1,8 +1,17 @@
-"""Drive con OAuth local: un usuario, una carpeta, solo lectura."""
+"""Drive con OAuth local: un usuario, una carpeta, solo lectura.
 
+Soporta tres fuentes de credenciales, en este orden:
+1. ``GOOGLE_SERVICE_ACCOUNT_JSON`` (JSON en una línea): ideal para serverless.
+2. ``GOOGLE_TOKEN_JSON`` (JSON en una línea): token de usuario ya autorizado.
+3. Flujo local original con ``token.json``/``credentials.json`` (OAuth Desktop).
+"""
+
+import json
+import os
 from pathlib import Path
 from io import BytesIO
 from google.auth.transport.requests import Request
+from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
@@ -14,6 +23,28 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class DriveService:
     def __init__(self):
+        creds = self._load_credentials()
+        self.service = build("drive", "v3", credentials=creds, cache_discovery=False)
+
+    @staticmethod
+    def _load_credentials():
+        # 1) Cuenta de servicio: sin navegador, recomendado en serverless.
+        raw_sa = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
+        if raw_sa:
+            info = json.loads(raw_sa)
+            return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+
+        # 2) Token de usuario autorizado pasado por variable de entorno.
+        raw_token = os.getenv("GOOGLE_TOKEN_JSON", "").strip()
+        if raw_token:
+            creds = Credentials.from_authorized_user_info(json.loads(raw_token), SCOPES)
+            if creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            if not creds.valid:
+                raise RuntimeError("GOOGLE_TOKEN_JSON no es válido; vuelve a autorizar en local.")
+            return creds
+
+        # 3) Flujo local original (OAuth Desktop con token.json).
         token = ROOT / "token.json"
         credentials_file = ROOT / "credentials.json"
         creds = None
@@ -30,8 +61,12 @@ class DriveService:
                 str(credentials_file), SCOPES
             )
             creds = flow.run_local_server(port=0, open_browser=True)
-        token.write_text(creds.to_json(), encoding="utf-8")
-        self.service = build("drive", "v3", credentials=creds, cache_discovery=False)
+        try:
+            token.write_text(creds.to_json(), encoding="utf-8")
+        except OSError:
+            # Sistema de archivos de solo lectura (serverless): se ignora.
+            pass
+        return creds
 
     def list_files(self, folder_id: str) -> list[dict]:
         if not folder_id:

@@ -2,16 +2,14 @@
 Nota: eliminar archivos de un vector store puede tener consistencia eventual.
 """
 
-import json
-import os
 import tempfile
 import threading
 from pathlib import Path
 from openai import OpenAI
 from app.core.config import settings
+from app.core.storage import read_manifest, write_manifest
 from app.services.drive_service import DriveService
 
-MANIFEST = Path(__file__).resolve().parents[2] / "data" / "manifest.json"
 _LOCK = threading.Lock()
 
 # Tipos MIME permitidos incluyendo Word (.docx, .doc), PPTX, Markdown y PDF
@@ -36,16 +34,11 @@ class SyncService:
 
     @staticmethod
     def load_manifest() -> dict:
-        if not MANIFEST.exists():
-            return {"vector_store_id": "", "documents": {}}
-        return json.loads(MANIFEST.read_text(encoding="utf-8"))
+        return read_manifest()
 
     @staticmethod
     def save_manifest(data: dict):
-        MANIFEST.parent.mkdir(parents=True, exist_ok=True)
-        tmp = MANIFEST.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-        os.replace(tmp, MANIFEST)
+        write_manifest(data)
 
     def get_store(self, manifest):
         vector_id = settings.vector_store_id or manifest.get("vector_store_id")
