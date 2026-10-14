@@ -355,6 +355,49 @@ textarea.form-control {
   color: var(--bs-tertiary-color);
 }
 
+/* Formato ligero de la respuesta (párrafos, listas, títulos, negritas, código) */
+.answer-p {
+  margin: 0 0 12px;
+}
+.answer-p:last-child {
+  margin-bottom: 0;
+}
+.answer-h {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 16px 0 8px;
+}
+.answer-h:first-child {
+  margin-top: 0;
+}
+.answer-list {
+  margin: 0 0 12px;
+  padding-left: 1.25rem;
+}
+.answer-list li {
+  margin-bottom: 4px;
+}
+.answer strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+.answer code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--bs-body-color);
+  background: #18181b;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.answer-thinking {
+  display: flex;
+  align-items: center;
+  color: var(--bs-tertiary-color);
+  font-size: 14px;
+}
+
 #sources {
   --bs-list-group-bg: transparent;
   --bs-list-group-color: var(--bs-body-color);
@@ -446,6 +489,52 @@ footer {
 }
 .fade-in {
   animation: fade-in-up 0.16s ease both;
+}
+
+/* ---------------------------------------------------- Ayuda y preguntas de ejemplo */
+.examples {
+  border-top: 1px solid var(--bs-border-color);
+}
+#examples .btn {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  text-align: left;
+  white-space: normal;
+  color: var(--bs-secondary-color);
+  background: #18181b;
+  border-color: var(--bs-border-color);
+}
+#examples .btn:hover,
+#examples .btn:focus {
+  color: var(--bs-emphasis-color);
+  background: #1f1f23;
+  border-color: #52525b;
+}
+
+.help-steps,
+.help-list {
+  margin-bottom: 0;
+  padding-left: 1.25rem;
+  color: var(--bs-secondary-color);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.help-steps li,
+.help-list li {
+  margin-bottom: 4px;
+}
+.help-steps strong,
+.help-list strong {
+  color: var(--bs-body-color);
+}
+.help-list code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--bs-body-color);
+  background: #18181b;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 4px;
+  padding: 1px 5px;
 }
 
 /* ------------------------------------------------------ Movimiento reducido */

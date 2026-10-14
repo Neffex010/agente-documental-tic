@@ -70,6 +70,11 @@ function setLoading(button, loading, label) {
   }
 }
 
+function setLoadingLabel(button, label) {
+  const node = button && button.lastChild;
+  if (node && node.nodeType === 3) node.nodeValue = label;
+}
+
 function fileKind(mime = '') {
   const m = String(mime).toLowerCase();
   if (m.includes('pdf')) return 'PDF';
@@ -197,6 +202,8 @@ async function loadDocuments(animate = true) {
 function renderSources(sources) {
   const list = el('sources');
   list.replaceChildren();
+  const count = el('source-count');
+  if (count) count.textContent = String(sources.length);
   if (!sources.length) {
     const li = document.createElement('li');
     li.className = 'list-group-item px-0 text-body-secondary';
@@ -226,6 +233,145 @@ function renderSources(sources) {
   });
 }
 
+/* ----------------------------------------------- formato de la respuesta y ayuda */
+function appendInline(node, text) {
+  const pattern = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+  let last = 0;
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > last) node.append(document.createTextNode(text.slice(last, match.index)));
+    const token = match[0];
+    if (token.startsWith('**')) {
+      const strong = document.createElement('strong');
+      strong.textContent = token.slice(2, -2);
+      node.append(strong);
+    } else {
+      const code = document.createElement('code');
+      code.textContent = token.slice(1, -1);
+      node.append(code);
+    }
+    last = match.index + token.length;
+  }
+  if (last < text.length) node.append(document.createTextNode(text.slice(last)));
+}
+
+/* Convierte la respuesta (texto plano) en párrafos, listas, títulos y negritas. */
+function renderAnswer(text) {
+  const box = el('answer');
+  box.replaceChildren();
+  box.removeAttribute('aria-busy');
+  if (!text) {
+    box.textContent = 'Sin respuesta.';
+    return;
+  }
+  let list = null;
+  let paragraph = [];
+  const flushList = () => {
+    if (list) { box.append(list); list = null; }
+  };
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    const p = document.createElement('p');
+    p.className = 'answer-p';
+    appendInline(p, paragraph.join(' '));
+    box.append(p);
+    paragraph = [];
+  };
+
+  text.replace(/\r/g, '').split('\n').forEach((raw) => {
+    const line = raw.trim();
+    if (!line) { flushParagraph(); flushList(); return; }
+
+    const heading = /^(#{1,6})\s+(.*)$/.exec(line);
+    if (heading) {
+      flushList();
+      flushParagraph();
+      const h = document.createElement('h3');
+      h.className = 'answer-h';
+      appendInline(h, heading[2]);
+      box.append(h);
+      return;
+    }
+
+    const bullet = /^[-*•]\s+(.*)$/.exec(line);
+    const numbered = /^\d+[.)]\s+(.*)$/.exec(line);
+    if (bullet || numbered) {
+      flushParagraph();
+      const ordered = Boolean(numbered);
+      if (!list || list.dataset.ordered !== String(ordered)) {
+        flushList();
+        list = document.createElement(ordered ? 'ol' : 'ul');
+        list.className = 'answer-list';
+        list.dataset.ordered = String(ordered);
+      }
+      const li = document.createElement('li');
+      appendInline(li, (bullet || numbered)[1]);
+      list.append(li);
+      return;
+    }
+
+    flushList();
+    paragraph.push(line);
+  });
+  flushList();
+  flushParagraph();
+}
+
+function setAnswerThinking(on) {
+  const box = el('answer');
+  if (!on) {
+    box.removeAttribute('aria-busy');
+    return;
+  }
+  const wrap = document.createElement('div');
+  wrap.className = 'answer-thinking';
+  const spinner = document.createElement('span');
+  spinner.className = 'spinner-border spinner-border-sm me-2';
+  spinner.setAttribute('aria-hidden', 'true');
+  const text = document.createElement('span');
+  text.textContent = 'Buscando en los documentos…';
+  wrap.append(spinner, text);
+  box.replaceChildren(wrap);
+  box.setAttribute('aria-busy', 'true');
+}
+
+function clearAnswer() {
+  state.lastAnswer = '';
+  el('answer').replaceChildren();
+  el('sources').replaceChildren();
+  const count = el('source-count');
+  if (count) count.textContent = '0';
+  const copy = el('copy-answer');
+  if (copy) copy.disabled = true;
+  setMessage('');
+}
+
+const EXAMPLES = [
+  '¿Qué se recomienda para reparar laptops?',
+  'Resume las ideas principales sobre inteligencia artificial.',
+  '¿Qué cuidados tiene una instalación eléctrica de interior?',
+];
+
+function renderExamples() {
+  const box = el('examples');
+  if (!box) return;
+  box.replaceChildren();
+  EXAMPLES.forEach((question) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'btn btn-outline-primary btn-sm focus-ring';
+    chip.textContent = question;
+    chip.addEventListener('click', () => {
+      const input = el('question');
+      input.value = question;
+      input.classList.remove('is-invalid');
+      updateCharCount();
+      input.focus();
+    });
+    box.append(chip);
+  });
+}
+
 async function ask() {
   const q = el('question').value.trim();
   if (q.length < 3) {
@@ -236,36 +382,55 @@ async function ask() {
   }
   el('question').classList.remove('is-invalid');
 
+  const useSearch = el('use-search').checked;
   const button = el('ask');
   setLoading(button, true, 'Consultando…');
   setMessage('Consultando al agente…');
+  setAnswerThinking(true);
   try {
-    const data = await api.ask(q, el('use-search').checked);
+    const data = await api.ask(q, useSearch);
     state.lastAnswer = data.answer || '';
-    el('answer').textContent = state.lastAnswer || 'Sin respuesta.';
-    renderSources(data.sources || []);
+    renderAnswer(state.lastAnswer);
+    const sources = data.sources || [];
+    renderSources(sources);
     const copy = el('copy-answer');
     if (copy) copy.disabled = !state.lastAnswer;
-    setMessage('Consulta finalizada.');
+    if (useSearch && !sources.length) {
+      setMessage('Consulta finalizada. El modelo no citó documentos: reformula la pregunta o comprueba la búsqueda documental.');
+    } else {
+      setMessage('Consulta finalizada.');
+    }
   } catch (e) {
+    el('answer').replaceChildren();
+    const copy = el('copy-answer');
+    if (copy) copy.disabled = true;
     setMessage(e.message, true);
     notify(e.message, 'danger');
   } finally {
+    el('answer').removeAttribute('aria-busy');
     setLoading(button, false);
   }
 }
 
 async function sync() {
-  if (!confirm('¿Sincronizar archivos de la carpeta autorizada de Google Drive?')) return;
+  if (!confirm('¿Sincronizar archivos de la carpeta autorizada de Google Drive?\n\nPuede tardar hasta un minuto; no cierres la página.')) return;
   const button = el('sync');
   setLoading(button, true, 'Sincronizando…');
   setMessage('Sincronizando documentos…');
+  const started = Date.now();
+  const timer = setInterval(() => {
+    const secs = Math.round((Date.now() - started) / 1000);
+    setLoadingLabel(button, `Sincronizando… ${secs} s`);
+    setMessage(`Sincronizando documentos… ${secs} s (puede tardar hasta un minuto).`);
+  }, 1000);
   try {
     const r = await api.sync(el('admin-key')?.value.trim());
     await loadDocuments();
-    const summary = `Sincronización: ${r.stats.added} nuevos, ${r.stats.updated} actualizados, ${r.stats.removed} eliminados, ${r.stats.unchanged} sin cambios. Errores: ${r.stats.errors.length}.`;
+    const stats = r.stats || { added: 0, updated: 0, removed: 0, unchanged: 0, errors: [] };
+    const errores = (stats.errors || []).length;
+    const summary = `Sincronización: ${stats.added} nuevos, ${stats.updated} actualizados, ${stats.removed} eliminados, ${stats.unchanged} sin cambios. Errores: ${errores}.`;
     setMessage(summary);
-    notify(summary);
+    notify(summary, errores ? 'danger' : 'success');
   } catch (e) {
     if (/administrativa|localhost/i.test(e.message)) {
       el('admin-key')?.closest('details')?.setAttribute('open', '');
@@ -274,6 +439,7 @@ async function sync() {
     setMessage(e.message, true);
     notify(e.message, 'danger');
   } finally {
+    clearInterval(timer);
     setLoading(button, false);
   }
 }
@@ -331,7 +497,9 @@ el('question').addEventListener('input', () => {
 el('doc-filter')?.addEventListener('input', () => renderDocuments(false));
 el('doc-sort')?.addEventListener('change', () => renderDocuments(false));
 el('copy-answer')?.addEventListener('click', copyAnswer);
+el('clear-answer')?.addEventListener('click', clearAnswer);
 document.addEventListener('keydown', onKeydown);
+renderExamples();
 
 const adminKey = el('admin-key');
 if (adminKey) {
@@ -346,12 +514,16 @@ api
   .health()
   .then((r) => {
     const node = el('health');
-    node.textContent = r.configured ? 'Servidor local listo' : 'Configuración pendiente';
+    node.textContent = r.configured ? 'Servicio en línea' : 'Configuración pendiente';
+    node.title = r.configured
+      ? 'El servicio responde y hay clave de OpenAI y carpeta de Drive configuradas.'
+      : 'Falta OPENAI_API_KEY o GOOGLE_DRIVE_FOLDER_ID en el servidor.';
     node.classList.add(r.configured ? 'is-ready' : 'is-offline');
   })
   .catch(() => {
     const node = el('health');
     node.textContent = 'Sin conexión';
+    node.title = 'No se pudo contactar con el servicio.';
     node.classList.add('is-offline');
   });
 loadDocuments().catch((e) => {
