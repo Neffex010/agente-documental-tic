@@ -28,6 +28,11 @@ def local_only(request: Request):
 def index():
     return FileResponse(ROOT / "index.html")
 
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    # Favicon SVG servido también en la ruta raíz para evitar 404 de navegadores.
+    return FileResponse(ROOT / "assets" / "favicon.svg", media_type="image/svg+xml")
+
 @app.get("/api/health")
 def health():
     return {"status": "ok", "configured": bool(settings.openai_api_key and settings.drive_folder_id)}

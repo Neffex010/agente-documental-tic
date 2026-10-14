@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Archivo TIC IA">
+  <rect width="32" height="32" rx="6" fill="#09090b"/>
+  <rect x="0.5" y="0.5" width="31" height="31" rx="5.5" fill="none" stroke="#3f3f46"/>
+  <path d="M12 6h6l5 5v14a2 2 0 0 1-2 2H12a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z"
+        fill="none" stroke="#f4f4f5" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M18 6v5h5" fill="none" stroke="#f4f4f5" stroke-width="1.8" stroke-linejoin="round"/>
+</svg>

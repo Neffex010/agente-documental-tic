@@ -1,1 +1,459 @@
-:root{--navy:#122b49;--cyan:#18a6c9}body{min-height:100vh;background:#f3f7fb;color:#162c46;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}.hero{background:linear-gradient(120deg,#102840,#15526b);color:#fff}.hero h1 span{color:#5bdded}.eyebrow{font-size:.72rem;letter-spacing:.12em;font-weight:700;color:#b6eaf4}.shell{border:1px solid #dbe5ef;box-shadow:0 12px 30px rgba(13,49,80,.06);border-radius:16px}.doc-list{max-height:350px;overflow:auto}.doc-item{padding:11px 0;border-bottom:1px solid #e4edf4;overflow-wrap:anywhere}.doc-item:last-child{border:0}.answer{line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}.btn-primary{background:#176b9b;border-color:#176b9b}.btn-primary:hover{background:#114b70}.badge.text-bg-info{background:#a9eaf1!important;color:#123f55!important}a{color:#126d9e;overflow-wrap:anywhere}
+/* ============================================================================
+   Archivo TIC IA · Hoja de estilos principal
+   Estética "human-engineered developer tool": neutros zinc/slate, bordes 1px,
+   botones planos, Inter + monoespaciada. Sin gradientes/neón/glow.
+   Aprovecha los color modes nativos de Bootstrap 5.3 (data-bs-theme) y sus
+   variables --bs-* en lugar de sobreescribir componentes a mano.
+   ========================================================================== */
+
+:root {
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+/* --- Color mode oscuro: paleta zinc mapeada a las variables de Bootstrap ----- */
+[data-bs-theme="dark"] {
+  color-scheme: dark;
+
+  --bs-body-bg: #09090b;
+  --bs-body-bg-rgb: 9, 9, 11;
+  --bs-body-color: #f4f4f5;
+  --bs-body-color-rgb: 244, 244, 245;
+  --bs-emphasis-color: #ffffff;
+  --bs-emphasis-color-rgb: 255, 255, 255;
+  --bs-secondary-color: #a1a1aa;
+  --bs-secondary-color-rgb: 161, 161, 170;
+  --bs-tertiary-color: #71717a;
+  --bs-tertiary-color-rgb: 113, 113, 122;
+  --bs-secondary-bg: #18181b;
+  --bs-secondary-bg-rgb: 24, 24, 27;
+  --bs-tertiary-bg: #111113;
+  --bs-tertiary-bg-rgb: 17, 17, 19;
+  --bs-border-color: #27272a;
+  --bs-border-color-translucent: rgba(255, 255, 255, 0.08);
+  --bs-link-color: #d4d4d8;
+  --bs-link-color-rgb: 212, 212, 216;
+  --bs-link-hover-color: #ffffff;
+  --bs-link-hover-color-rgb: 255, 255, 255;
+
+  --bs-body-font-family: var(--font-sans);
+  --bs-body-font-size: 15px;
+  --bs-body-line-height: 1.6;
+
+  --bs-border-radius: 6px;
+  --bs-border-radius-sm: 4px;
+
+  --bs-focus-ring-width: 2px;
+  --bs-focus-ring-color: rgba(113, 113, 122, 0.55);
+
+  --bs-form-invalid-color: #f87171;
+  --bs-form-invalid-border-color: #f87171;
+
+  /* Acentos neutros de alto contraste */
+  --accent: #fafafa;
+  --accent-hover: #e4e4e7;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv11", "ss01";
+}
+
+::selection {
+  background: #3f3f46;
+  color: #f4f4f5;
+}
+
+/* ------------------------------------------------------------------ Scrollbars */
+.doc-list,
+#answer {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 transparent;
+}
+.doc-list::-webkit-scrollbar,
+#answer::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.doc-list::-webkit-scrollbar-thumb,
+#answer::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 4px;
+}
+.doc-list::-webkit-scrollbar-track,
+#answer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------------------------------------------------------------- Accesibilidad */
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -48px;
+  z-index: 1080;
+  padding: 8px 12px;
+  background: #18181b;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  color: #f4f4f5;
+  font-size: 14px;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 16px;
+}
+
+/* ------------------------------------------------------------------------ Header */
+.hero {
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+  background: var(--bs-body-bg);
+  border-bottom: 1px solid var(--bs-border-color);
+}
+.hero h1 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.hero h1 span {
+  color: var(--bs-tertiary-color);
+}
+.eyebrow {
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--bs-tertiary-color);
+}
+
+/* ------------------------------------------------------------------ Superficies */
+.card.shell {
+  --bs-card-bg: #111113;
+  --bs-card-border-color: var(--bs-border-color);
+  --bs-card-border-radius: var(--bs-border-radius);
+  --bs-card-cap-bg: transparent;
+}
+.card-body {
+  padding: 24px;
+}
+.card h2,
+.card h3 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* ------------------------------------------------------------ Base documental */
+.doc-list {
+  max-height: 400px;
+  overflow: auto;
+}
+.doc-toolbar .form-control {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.doc-toolbar .form-select {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.doc-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--bs-border-color);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.doc-item:last-child {
+  border-bottom: 0;
+}
+.doc-item a {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--bs-body-color);
+}
+.doc-item a:hover {
+  color: #ffffff;
+}
+.doc-meta {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--bs-tertiary-color);
+  white-space: nowrap;
+}
+.file-badge {
+  flex: 0 0 auto;
+  display: inline-block;
+  min-width: 42px;
+  text-align: center;
+  padding: 1px 5px;
+  border: 1px solid #3f3f46;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--bs-secondary-color);
+  background: #18181b;
+}
+
+.doc-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--bs-tertiary-color);
+  border: 1px dashed #3f3f46;
+  border-radius: 6px;
+  background: #18181b;
+  font-size: 14px;
+}
+.doc-empty svg {
+  opacity: 0.7;
+}
+
+/* Esqueleto de carga nativo de Bootstrap */
+.doc-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0;
+}
+.doc-skeleton .placeholder {
+  display: block;
+  min-height: 14px;
+  border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------------- Botones */
+.btn {
+  --bs-btn-font-weight: 500;
+  --bs-btn-border-radius: 6px;
+}
+.btn:not(.btn-sm):not(.btn-lg) {
+  --bs-btn-font-size: 14px;
+  --bs-btn-padding-y: 8px;
+  --bs-btn-padding-x: 16px;
+}
+
+.btn-primary {
+  --bs-btn-color: #09090b;
+  --bs-btn-bg: var(--accent);
+  --bs-btn-border-color: var(--accent);
+  --bs-btn-hover-color: #09090b;
+  --bs-btn-hover-bg: var(--accent-hover);
+  --bs-btn-hover-border-color: var(--accent-hover);
+  --bs-btn-active-color: #09090b;
+  --bs-btn-active-bg: #d4d4d8;
+  --bs-btn-active-border-color: #d4d4d8;
+  --bs-btn-disabled-color: #71717a;
+  --bs-btn-disabled-bg: #27272a;
+  --bs-btn-disabled-border-color: #27272a;
+  --bs-btn-focus-shadow-rgb: 113, 113, 122;
+}
+
+.btn-outline-primary {
+  --bs-btn-color: #f4f4f5;
+  --bs-btn-border-color: #3f3f46;
+  --bs-btn-hover-color: #ffffff;
+  --bs-btn-hover-bg: #1f1f23;
+  --bs-btn-hover-border-color: #52525b;
+  --bs-btn-active-color: #ffffff;
+  --bs-btn-active-bg: #27272a;
+  --bs-btn-active-border-color: #52525b;
+  --bs-btn-disabled-color: #71717a;
+  --bs-btn-disabled-border-color: #27272a;
+  --bs-btn-focus-shadow-rgb: 113, 113, 122;
+}
+
+/* ------------------------------------------------------------------ Formulario */
+.form-control,
+.form-select {
+  color: var(--bs-body-color);
+  background-color: var(--bs-body-bg);
+  border-color: var(--bs-border-color);
+}
+.form-control::placeholder {
+  color: #52525b;
+}
+textarea.form-control {
+  resize: vertical;
+}
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  border-color: #52525b;
+  box-shadow: 0 0 0 2px rgba(113, 113, 122, 0.5);
+}
+.form-select {
+  --bs-form-select-bg-img: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23a1a1aa' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+}
+.form-select option {
+  background: #18181b;
+  color: #f4f4f5;
+}
+.form-floating > label {
+  color: var(--bs-secondary-color);
+}
+.form-check-input {
+  background-color: var(--bs-body-bg);
+  border-color: #3f3f46;
+}
+.form-check-input:checked {
+  background-color: #52525b;
+  border-color: #52525b;
+}
+.form-check-input:focus {
+  border-color: #52525b;
+  box-shadow: 0 0 0 2px rgba(113, 113, 122, 0.5);
+}
+.form-check-label {
+  color: var(--bs-secondary-color);
+  font-size: 14px;
+}
+.char-count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--bs-tertiary-color);
+  white-space: nowrap;
+}
+.char-count.is-near {
+  color: var(--bs-form-invalid-color);
+}
+
+.kbd {
+  display: inline-block;
+  background: #18181b;
+  border: 1px solid #3f3f46;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--bs-secondary-color);
+}
+
+/* ------------------------------------------------------------------- Mensajes */
+#message.text-danger {
+  color: var(--bs-form-invalid-color) !important;
+}
+
+/* --------------------------------------------------- Respuesta y fuentes */
+.answer {
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--bs-body-color);
+  min-height: 4.5rem;
+}
+.answer:empty::before {
+  content: "Escribe una pregunta para comenzar.";
+  color: var(--bs-tertiary-color);
+}
+
+#sources {
+  --bs-list-group-bg: transparent;
+  --bs-list-group-color: var(--bs-body-color);
+  --bs-list-group-border-color: var(--bs-border-color);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+#sources .list-group-item {
+  display: flex;
+  align-items: center;
+  background: transparent;
+}
+#sources:empty::after {
+  content: "Aún no hay fuentes para mostrar.";
+  display: block;
+  color: var(--bs-tertiary-color);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  padding: 8px 0;
+}
+#sources a {
+  color: var(--bs-body-color);
+}
+.source-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  border: 1px solid #3f3f46;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--bs-secondary-color);
+  background: #18181b;
+}
+
+/* --------------------------------------------------------------------- Badges */
+.badge {
+  --bs-badge-font-weight: 500;
+  --bs-badge-font-size: 12px;
+  --bs-badge-padding-y: 4px;
+  --bs-badge-padding-x: 8px;
+  --bs-badge-border-radius: 4px;
+}
+#health {
+  background: #18181b;
+  border: 1px solid #3f3f46;
+  color: var(--bs-secondary-color);
+}
+#health.is-ready {
+  color: var(--bs-body-color);
+}
+#health.is-offline {
+  color: var(--bs-form-invalid-color);
+}
+
+/* --------------------------------------------------------------------- Toasts */
+.toast {
+  --bs-toast-bg: #18181b;
+  --bs-toast-color: #f4f4f5;
+  --bs-toast-border-color: var(--bs-border-color);
+  --bs-toast-box-shadow: none;
+  --bs-toast-header-color: var(--bs-secondary-color);
+  --bs-toast-header-bg: #18181b;
+  --bs-toast-header-border-color: var(--bs-border-color);
+}
+.toast-danger {
+  border-color: var(--bs-form-invalid-color);
+}
+
+/* --------------------------------------------------------------------- Footer */
+footer {
+  border-top: 1px solid var(--bs-border-color);
+  margin-top: 32px;
+  padding-top: 24px;
+}
+
+/* ------------------------------------------------- Aparición de elementos */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.fade-in {
+  animation: fade-in-up 0.16s ease both;
+}
+
+/* ------------------------------------------------------ Movimiento reducido */
+@media (prefers-reduced-motion: reduce) {
+  .fade-in {
+    animation: none;
+  }
+  .placeholder-glow .placeholder {
+    animation: none;
+  }
+}
