@@ -34,10 +34,19 @@ class DriveService:
             info = json.loads(raw_sa)
             return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
 
-        # 2) Token de usuario autorizado pasado por variable de entorno.
+        # 2) Token de usuario (token.json) pasado por variable de entorno.
         raw_token = os.getenv("GOOGLE_TOKEN_JSON", "").strip()
         if raw_token:
-            creds = Credentials.from_authorized_user_info(json.loads(raw_token), SCOPES)
+            info = json.loads(raw_token)
+            if info.get("type") == "service_account" or "private_key" in info:
+                # Cuenta de servicio pegada en la variable equivocada: se acepta igual.
+                return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+            if not (info.get("refresh_token") and info.get("client_id") and info.get("client_secret")):
+                raise RuntimeError(
+                    "GOOGLE_TOKEN_JSON debe ser el contenido de token.json "
+                    "(refresh_token, client_id, client_secret), no credentials.json."
+                )
+            creds = Credentials.from_authorized_user_info(info, SCOPES)
             if creds.expired and creds.refresh_token:
                 creds.refresh(Request())
             if not creds.valid:
