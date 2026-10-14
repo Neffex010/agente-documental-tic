@@ -1,6 +1,7 @@
 """Sincronización unidireccional: Drive -> OpenAI Vector Store.
 Nota: eliminar archivos de un vector store puede tener consistencia eventual.
 """
+
 import json
 import os
 import tempfile
@@ -12,7 +13,21 @@ from app.services.drive_service import DriveService
 
 MANIFEST = Path(__file__).resolve().parents[2] / "data" / "manifest.json"
 _LOCK = threading.Lock()
-SUPPORTED = {"application/pdf", "text/plain", "application/vnd.google-apps.document"}
+
+# Tipos MIME permitidos incluyendo Word (.docx, .doc), PPTX, Markdown y PDF
+SUPPORTED = {
+    "application/pdf",
+    "text/plain",
+    "text/markdown",
+    "text/csv",
+    "text/html",
+    "application/json",
+    "application/vnd.google-apps.document",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
+    "application/msword",  # .doc
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",  # .pptx
+}
+
 
 class SyncService:
     def __init__(self, client=None, drive=None):
@@ -21,7 +36,8 @@ class SyncService:
 
     @staticmethod
     def load_manifest() -> dict:
-        if not MANIFEST.exists(): return {"vector_store_id": "", "documents": {}}
+        if not MANIFEST.exists():
+            return {"vector_store_id": "", "documents": {}}
         return json.loads(MANIFEST.read_text(encoding="utf-8"))
 
     @staticmethod
@@ -34,7 +50,9 @@ class SyncService:
     def get_store(self, manifest):
         vector_id = settings.vector_store_id or manifest.get("vector_store_id")
         if not vector_id:
-            vector_id = self.client.vector_stores.create(name="Archivo TIC IA - Documentos").id
+            vector_id = self.client.vector_stores.create(
+                name="Archivo TIC IA - Documentos"
+            ).id
         manifest["vector_store_id"] = vector_id
         return vector_id
 
@@ -47,47 +65,91 @@ class SyncService:
             store = self.get_store(manifest)
             self.save_manifest(manifest)
             source = self.drive.list_files(settings.drive_folder_id)
-            eligible = {x["id"]: x for x in source if x["mimeType"] in SUPPORTED}
-            stats = {"added": 0, "updated": 0, "removed": 0, "unchanged": 0, "errors": []}
+
+            # Filtro por tipos MIME declarados o cualquier texto estructurado
+            eligible = {
+                x["id"]: x
+                for x in source
+                if x["mimeType"] in SUPPORTED or x["mimeType"].startswith("text/")
+            }
+
+            stats = {
+                "added": 0,
+                "updated": 0,
+                "removed": 0,
+                "unchanged": 0,
+                "errors": [],
+            }
             for drive_id, item in eligible.items():
                 previous = docs.get(drive_id)
-                if previous and previous.get("modified_time") == item.get("modifiedTime"):
+                if previous and previous.get("modified_time") == item.get(
+                    "modifiedTime"
+                ):
                     stats["unchanged"] += 1
                     continue
                 try:
                     raw, filename, _ = self.drive.get_bytes(item)
-                    if not raw: raise ValueError("El archivo está vacío")
-                    suffix = ".pdf" if filename.lower().endswith(".pdf") else ".txt"
-                    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temp:
+                    if not raw:
+                        raise ValueError("El archivo está vacío")
+
+                    # Extraer la extensión real del archivo
+                    suffix = Path(filename).suffix or ".txt"
+
+                    with tempfile.NamedTemporaryFile(
+                        suffix=suffix, delete=False
+                    ) as temp:
                         temp.write(raw)
                         path = Path(temp.name)
                     try:
                         with path.open("rb") as fh:
-                            upload = self.client.vector_stores.files.upload_and_poll(vector_store_id=store, file=fh)
+                            upload = self.client.vector_stores.files.upload_and_poll(
+                                vector_store_id=store, file=fh
+                            )
                     finally:
                         path.unlink(missing_ok=True)
-                    if upload.status != "completed": raise RuntimeError("Indexación no completada: " + upload.status)
-                    # Solo se elimina la versión antigua después de indexar exitosamente la nueva.
+
+                    if upload.status != "completed":
+                        raise RuntimeError("Indexación no completada: " + upload.status)
+
+                    # Solo eliminar la versión antigua tras indexar exitosamente la nueva
                     if previous:
-                        self.client.vector_stores.files.delete(vector_store_id=store, file_id=previous["openai_file_id"])
+                        self.client.vector_stores.files.delete(
+                            vector_store_id=store, file_id=previous["openai_file_id"]
+                        )
+
                     docs[drive_id] = {
-                        "name": item["name"], "modified_time": item.get("modifiedTime"),
-                        "mime_type": item["mimeType"], "openai_file_id": upload.id,
-                        "url": item.get("webViewLink") or (
-                            "https://docs.google.com/document/d/" + drive_id + "/edit" if item["mimeType"] == "application/vnd.google-apps.document" else "https://drive.google.com/file/d/" + drive_id + "/view")
+                        "name": filename,
+                        "modified_time": item.get("modifiedTime"),
+                        "mime_type": item["mimeType"],
+                        "openai_file_id": upload.id,
+                        "url": item.get("webViewLink")
+                        or (
+                            "https://docs.google.com/document/d/" + drive_id + "/edit"
+                            if item["mimeType"]
+                            == "application/vnd.google-apps.document"
+                            else "https://drive.google.com/file/d/" + drive_id + "/view"
+                        ),
                     }
                     self.save_manifest(manifest)
                     stats["updated" if previous else "added"] += 1
                 except Exception as exc:
                     stats["errors"].append({"file": item["name"], "error": str(exc)})
+
             for drive_id in set(docs) - set(eligible):
                 try:
-                    self.client.vector_stores.files.delete(vector_store_id=store, file_id=docs[drive_id]["openai_file_id"])
+                    self.client.vector_stores.files.delete(
+                        vector_store_id=store, file_id=docs[drive_id]["openai_file_id"]
+                    )
                     del docs[drive_id]
                     self.save_manifest(manifest)
                     stats["removed"] += 1
                 except Exception as exc:
                     stats["errors"].append({"file": drive_id, "error": str(exc)})
-            return {"vector_store_id": store, "stats": stats, "documents": list(docs.values())}
+
+            return {
+                "vector_store_id": store,
+                "stats": stats,
+                "documents": list(docs.values()),
+            }
         finally:
             _LOCK.release()
