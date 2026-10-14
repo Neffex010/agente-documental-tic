@@ -501,6 +501,13 @@ el('clear-answer')?.addEventListener('click', clearAnswer);
 document.addEventListener('keydown', onKeydown);
 renderExamples();
 
+// Red de seguridad: cualquier promesa rechazada sin capturar se informa al usuario.
+window.addEventListener('unhandledrejection', (event) => {
+  const msg = (event.reason && (event.reason.message || event.reason)) || 'Error inesperado.';
+  setMessage(String(msg), true);
+  notify(String(msg), 'danger');
+});
+
 const adminKey = el('admin-key');
 if (adminKey) {
   try { adminKey.value = sessionStorage.getItem('admin-key') || ''; } catch (_) {}
