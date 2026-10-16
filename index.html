@@ -64,15 +64,8 @@
               </div>
             </div>
 
-            <details class="sync-key mt-3">
-              <summary class="small text-body-secondary">Clave administrativa (despliegue remoto)</summary>
-              <input type="password" id="admin-key" class="form-control form-control-sm mt-2"
-                placeholder="X-Admin-Key" autocomplete="off" aria-label="Clave administrativa">
-              <p class="small text-body-secondary mt-2 mb-0">Solo necesaria en Vercel o fuera de localhost.</p>
-            </details>
-
             <button type="button" id="sync" class="btn btn-outline-primary focus-ring w-100 mt-3">Sincronizar desde Drive</button>
-            <p class="small text-body-secondary mt-2 mb-0">La primera sincronización abrirá OAuth en el equipo donde corre Python. En remoto, usa la clave administrativa.</p>
+            <p class="small text-body-secondary mt-2 mb-0">La primera sincronización abrirá OAuth en el equipo donde corre Python. En Vercel puede tardar hasta un minuto.</p>
           </div>
         </section>
       </div>
@@ -151,7 +144,7 @@
             <h3 class="h6 mb-2">Si algo no funciona</h3>
             <ul class="help-list">
               <li>«Sin documentos indexados»: pulsa <strong>Sincronizar</strong> o revisa la carpeta autorizada.</li>
-              <li>Error 403 al sincronizar: la clave administrativa no coincide con <code>LOCAL_ADMIN_KEY</code>.</li>
+              <li>La sincronización falla: revisa <code>GOOGLE_DRIVE_FOLDER_ID</code> y las credenciales de Google, o reintenta (en Vercel el límite es de 60 s).</li>
               <li>Respuesta sin fuentes: el modelo no citó documentos; reformula la pregunta o comprueba que la búsqueda esté activa.</li>
             </ul>
           </div>

@@ -24,7 +24,7 @@ El proyecto emplea una **Arquitectura Híbrida Desacoplada** para superar las li
 1. **Backend (FastAPI):** gestiona la integración con la API de OpenAI (File Search), la sincronización con Google Drive y la validación de seguridad.
 2. **Frontend (HTML + CSS propio + JavaScript vanilla):** interfaz oscura tipo «developer tool» sobre Bootstrap 5.3 (vía CDN, carga diferida) y un formateador ligero propio que convierte la respuesta en párrafos, listas, negritas y `código` construyendo nodos del DOM (sin `innerHTML` de contenido del modelo). Sin frameworks UI pesados.
 3. **Manejo de Estado Temporal:** para permitir la sincronización en Vercel sin violar las políticas de *Read-Only File System*, las descargas de Google Drive y el procesamiento de tipo MIME se realizan en el directorio efímero (`DATA_DIR`, p. ej. `/tmp`). El Vector Store actúa como **fuente de verdad**: si el manifiesto local se pierde, el listado y las citas se reconstruyen a partir de los atributos de los archivos (`name`, `mime_type`, `url`, `drive_id`, `modified_time`).
-4. **Seguridad y Autorización:** el proceso de sincronización con Google Drive está protegido por una guardia de autorización (`X-Admin-Key`) que evita el consumo no autorizado de cuotas de API por usuarios públicos. La autenticación con Google Cloud se maneja mediante credenciales pre-inyectadas por variables de entorno (`GOOGLE_SERVICE_ACCOUNT_JSON` o `GOOGLE_TOKEN_JSON`).
+4. **Seguridad y Credenciales:** el endpoint de sincronización (`POST /api/sync`) está **abierto** por decisión del proyecto, para que el botón «Sincronizar desde Drive» funcione en Vercel sin pedir nada al usuario. Cualquiera que conozca la URL podría lanzar una sincronización y consumir cuota de OpenAI/Drive: es un compromiso aceptado en este despliegue de demostración (para protegerlo, añade de nuevo una guardia por cabecera o por sesión). La autenticación con Google Cloud se maneja mediante credenciales pre-inyectadas por variables de entorno (`GOOGLE_SERVICE_ACCOUNT_JSON` o `GOOGLE_TOKEN_JSON`).
 
 ### Estructura del proyecto
 
@@ -105,7 +105,7 @@ python run.py
 
 Abre <http://127.0.0.1:5000>. Usa **Sincronizar desde Drive** para autenticar Google, descargar/exportar los archivos autorizados e indexarlos. La primera ejecución abre el navegador OAuth en la computadora donde está corriendo Python. Después escribe preguntas sobre el contenido. Para ensayar la recuperación, desactiva **File Search (RAG)** y repite exactamente la misma pregunta.
 
-**Importante:** en `localhost` la sincronización funciona directamente. Si defines `LOCAL_ADMIN_KEY`, escríbela en el campo **«Clave administrativa»** de la interfaz (o envíala como cabecera `X-Admin-Key`); es obligatoria fuera de localhost. Ejecuta el backend en `127.0.0.1`, no en `0.0.0.0`.
+**Importante:** la sincronización no pide clave en ningún caso (el endpoint está abierto). Ejecuta el backend en `127.0.0.1`, no en `0.0.0.0`, para no exponerlo en tu red local.
 
 ### Guía rápida de la interfaz
 
@@ -124,7 +124,7 @@ Abre <http://127.0.0.1:5000>. Usa **Sincronizar desde Drive** para autenticar Go
 | GET | `/favicon.ico` | Icono del sitio. |
 | GET | `/api/health` | Comprueba configuración y servidor. |
 | GET | `/api/documents` | Documentos ya indexados (manifiesto local o índice de OpenAI). |
-| POST | `/api/sync` | Indexa cambios; requiere origen local o la cabecera `X-Admin-Key`. |
+| POST | `/api/sync` | Indexa cambios. Endpoint abierto (sin clave). |
 | POST | `/api/ask` | Pregunta con `question` y `use_search`. |
 
 Ejemplo JSON para Thunder Client:
@@ -166,7 +166,7 @@ El proyecto conserva su uso local (OAuth Desktop y `data/manifest.json`), pero i
 - `vercel.json` fija el entrypoint (`app/main.py`) e incluye `index.html` y `assets/**` en el bundle.
 - `app/core/storage.py` escribe el manifiesto en un directorio escribible (`DATA_DIR`, con respaldo al temporal) para no fallar en un sistema de archivos de solo lectura.
 - `app/services/drive_service.py` acepta credenciales por variable de entorno, sin navegador.
-- `POST /api/sync` permite acceso desde cualquier origen **solo** si se envía la cabecera `X-Admin-Key` correcta.
+- `POST /api/sync` está abierto (sin autenticación) para que la sincronización funcione desde Vercel directamente.
 
 ### Publicar el repositorio
 
@@ -191,7 +191,6 @@ git push
 | `OPENAI_MODEL` | No | Modelo con File Search (por defecto `gpt-4.1-mini`; la demo usa `gpt-4o-mini`). |
 | `VECTOR_STORE_ID` | Recomendada | Si la defines, `/api/ask` funciona sin sincronizar. |
 | `GOOGLE_DRIVE_FOLDER_ID` | Para sincronizar | ID de la carpeta de Drive. |
-| `LOCAL_ADMIN_KEY` | Para sincronizar | Clave secreta que habilita `/api/sync` en remoto. |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | Para sincronizar | JSON de cuenta de servicio en una sola línea. |
 | `GOOGLE_TOKEN_JSON` | Alternativa | Token de usuario autorizado (`token.json`, con `refresh_token`) en una línea. |
 | `DATA_DIR` | No | Directorio escribible (p. ej. `/tmp`); si no se define, se usa el temporal. |
@@ -203,14 +202,15 @@ El flujo OAuth Desktop abre un navegador y **no** funciona en serverless. Para i
 1. Crea una **cuenta de servicio** en Google Cloud y habilita Google Drive API.
 2. Comparte la carpeta de Drive con el email de la cuenta de servicio (permiso de lector).
 3. Pega el JSON completo de la cuenta de servicio en `GOOGLE_SERVICE_ACCOUNT_JSON` (una sola línea).
-4. Define `LOCAL_ADMIN_KEY` y escribe esa misma clave en el campo **«Clave administrativa»** de la interfaz (o llama a `POST /api/sync` con la cabecera `X-Admin-Key: <clave>`).
+4. Ya puedes pulsar **Sincronizar desde Drive** en la interfaz: no pide ninguna clave.
 5. Tras cambiar cualquier variable de entorno, **vuelve a desplegar** (Redeploy) para que surta efecto.
+6. Si en Vercel aún tienes la variable `LOCAL_ADMIN_KEY`, puedes borrarla: el código ya no la usa.
 
 ### Limitaciones honestas en serverless
 
 - El manifiesto en `/tmp` es **efímero**: se pierde entre instancias frías. Por eso `/api/documents` reconstruye la lista desde los atributos del Vector Store de OpenAI, y `/api/ask` sigue funcionando con `VECTOR_STORE_ID`. Para persistencia duradera usa almacenamiento externo (Vercel Blob desde una función Node, o una base de datos).
 - `maxDuration` está en 60 s; sincronizar muchos archivos puede agotarlo (amplíalo en un plan superior). La interfaz muestra un contador de segundos durante la sincronización.
-- No hay usuarios ni sesiones: `POST /api/ask` queda abierto. No subas documentos confidenciales y protege el endpoint antes de un uso real.
+- No hay usuarios ni sesiones: `POST /api/ask` y `POST /api/sync` quedan abiertos. No subas documentos confidenciales y añade autenticación antes de un uso real.
 
 ---
 

@@ -1,7 +1,6 @@
-"""Aplicación académica LOCAL. No desplegar públicamente sin autenticación de usuarios."""
+"""Aplicación académica. La sincronización está abierta: ver README (sección de seguridad)."""
 from pathlib import Path
-from ipaddress import ip_address
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
@@ -12,31 +11,6 @@ from app.services.agent_service import AgentService
 ROOT = Path(__file__).resolve().parents[1]
 app = FastAPI(title="Archivo TIC IA", version="1.0.0")
 app.mount("/assets", StaticFiles(directory=ROOT / "assets"), name="assets")
-
-def local_only(request: Request):
-    """Acceso a sincronización: loopback local o clave administrativa válida.
-
-    En local se mantiene la defensa por IP de loopback. En despliegues remotos
-    (p. ej. Vercel) se permite el acceso solo si se envía la cabecera
-    ``X-Admin-Key`` correcta, configurada en ``LOCAL_ADMIN_KEY``.
-    """
-    host = request.client.host if request.client else ""
-    try:
-        loopback = ip_address(host).is_loopback
-    except ValueError:
-        loopback = False
-    key = settings.local_admin_key
-    provided = request.headers.get("X-Admin-Key", "")
-    if loopback:
-        if key and provided != key:
-            raise HTTPException(status_code=401, detail="Clave administrativa incorrecta")
-        return
-    if key and provided == key:
-        return
-    raise HTTPException(
-        status_code=403,
-        detail="Sincronización disponible solo desde localhost o con clave administrativa",
-    )
 
 @app.get("/")
 def index():
@@ -80,8 +54,14 @@ def ask(payload: AskRequest):
     except Exception:
         raise HTTPException(status_code=502, detail="Error al consultar OpenAI. Revisa el registro local.")
 
-@app.post("/api/sync", dependencies=[Depends(local_only)])
+@app.post("/api/sync")
 def sync():
+    """Indexa los cambios de la carpeta de Drive.
+
+    Endpoint abierto (sin autenticación) por decisión del proyecto: cualquiera
+    que conozca la URL puede lanzar una sincronización y consumir cuota de
+    OpenAI/Drive. No exponerlo públicamente sin protección adicional.
+    """
     try:
         if not settings.openai_api_key: raise ValueError("Falta OPENAI_API_KEY")
         return SyncService().sync()

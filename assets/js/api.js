@@ -22,9 +22,5 @@ export class ApiClient {
   health() { return this.request('/api/health'); }
   documents() { return this.request('/api/documents'); }
   ask(question, useSearch) { return this.request('/api/ask', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question,use_search:useSearch})}); }
-  sync(adminKey) {
-    const headers = {};
-    if (adminKey) headers['X-Admin-Key'] = adminKey;
-    return this.request('/api/sync', {method:'POST', headers});
-  }
+  sync() { return this.request('/api/sync', {method:'POST'}); }
 }

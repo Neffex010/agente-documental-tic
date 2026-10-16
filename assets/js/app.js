@@ -424,7 +424,7 @@ async function sync() {
     setMessage(`Sincronizando documentos… ${secs} s (puede tardar hasta un minuto).`);
   }, 1000);
   try {
-    const r = await api.sync(el('admin-key')?.value.trim());
+    const r = await api.sync();
     await loadDocuments();
     const stats = r.stats || { added: 0, updated: 0, removed: 0, unchanged: 0, errors: [] };
     const errores = (stats.errors || []).length;
@@ -432,10 +432,6 @@ async function sync() {
     setMessage(summary);
     notify(summary, errores ? 'danger' : 'success');
   } catch (e) {
-    if (/administrativa|localhost/i.test(e.message)) {
-      el('admin-key')?.closest('details')?.setAttribute('open', '');
-      el('admin-key')?.focus();
-    }
     setMessage(e.message, true);
     notify(e.message, 'danger');
   } finally {
@@ -507,14 +503,6 @@ window.addEventListener('unhandledrejection', (event) => {
   setMessage(String(msg), true);
   notify(String(msg), 'danger');
 });
-
-const adminKey = el('admin-key');
-if (adminKey) {
-  try { adminKey.value = sessionStorage.getItem('admin-key') || ''; } catch (_) {}
-  adminKey.addEventListener('input', () => {
-    try { sessionStorage.setItem('admin-key', adminKey.value.trim()); } catch (_) {}
-  });
-}
 
 updateCharCount();
 api
