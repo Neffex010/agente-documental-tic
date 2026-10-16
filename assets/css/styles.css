@@ -2,6 +2,8 @@
    Archivo TIC IA · Hoja de estilos principal
    Estética "human-engineered developer tool": neutros zinc/slate, bordes 1px,
    botones planos, Inter + monoespaciada. Sin gradientes/neón/glow.
+   Sobre esa base oscura se usan acentos pastel atenuados (menta, cielo,
+   melocotón, rosa, mantequilla) para reconocer estados y tipos de archivo.
    Aprovecha los color modes nativos de Bootstrap 5.3 (data-bs-theme) y sus
    variables --bs-* en lugar de sobreescribir componentes a mano.
    ========================================================================== */
@@ -44,7 +46,7 @@
   --bs-border-radius-sm: 4px;
 
   --bs-focus-ring-width: 2px;
-  --bs-focus-ring-color: rgba(113, 113, 122, 0.55);
+  --bs-focus-ring-color: rgba(169, 201, 240, 0.55);
 
   --bs-form-invalid-color: #f87171;
   --bs-form-invalid-border-color: #f87171;
@@ -52,6 +54,19 @@
   /* Acentos neutros de alto contraste */
   --accent: #fafafa;
   --accent-hover: #e4e4e7;
+
+  /* Toques pastel: color atenuado sobre la base zinc, nunca como fondo dominante.
+     Se usan en textos, bordes e iconos; los fondos llevan el tono con baja opacidad. */
+  --pastel-mint: #a8e6cf;
+  --pastel-sky: #a9c9f0;
+  --pastel-peach: #f6c9a4;
+  --pastel-rose: #f2b8c6;
+  --pastel-butter: #ecdfa4;
+  --pastel-aqua: #a9e0e8;
+  --pastel-mint-soft: rgba(168, 230, 207, 0.12);
+  --pastel-mint-line: rgba(168, 230, 207, 0.28);
+  --pastel-sky-soft: rgba(169, 201, 240, 0.1);
+  --pastel-sky-line: rgba(169, 201, 240, 0.3);
 }
 
 body {
@@ -61,8 +76,8 @@ body {
 }
 
 ::selection {
-  background: #3f3f46;
-  color: #f4f4f5;
+  background: var(--pastel-mint);
+  color: #0b0b0d;
 }
 
 /* ------------------------------------------------------------------ Scrollbars */
@@ -117,7 +132,7 @@ body {
   letter-spacing: -0.02em;
 }
 .hero h1 span {
-  color: var(--bs-tertiary-color);
+  color: var(--pastel-mint);
 }
 .eyebrow {
   font-size: 0.72rem;
@@ -176,7 +191,7 @@ body {
   color: var(--bs-body-color);
 }
 .doc-item a:hover {
-  color: #ffffff;
+  color: var(--pastel-sky);
 }
 .doc-meta {
   flex: 0 0 auto;
@@ -199,6 +214,35 @@ body {
   color: var(--bs-secondary-color);
   background: #18181b;
 }
+/* Un tono pastel por tipo de archivo: mismo peso visual, solo cambia el matiz. */
+.file-badge--pdf {
+  color: var(--pastel-rose);
+  border-color: rgba(242, 184, 198, 0.3);
+}
+.file-badge--doc {
+  color: var(--pastel-sky);
+  border-color: var(--pastel-sky-line);
+}
+.file-badge--ppt {
+  color: var(--pastel-peach);
+  border-color: rgba(246, 201, 164, 0.3);
+}
+.file-badge--csv {
+  color: var(--pastel-mint);
+  border-color: var(--pastel-mint-line);
+}
+.file-badge--json {
+  color: var(--pastel-butter);
+  border-color: rgba(236, 223, 164, 0.3);
+}
+.file-badge--gdoc {
+  color: var(--pastel-aqua);
+  border-color: rgba(169, 224, 232, 0.3);
+}
+.file-badge--html {
+  color: var(--pastel-peach);
+  border-color: rgba(246, 201, 164, 0.3);
+}
 
 .doc-empty {
   display: flex;
@@ -208,13 +252,14 @@ body {
   padding: 32px 16px;
   text-align: center;
   color: var(--bs-tertiary-color);
-  border: 1px dashed #3f3f46;
+  border: 1px dashed var(--pastel-mint-line);
   border-radius: 6px;
   background: #18181b;
   font-size: 14px;
 }
 .doc-empty svg {
   opacity: 0.7;
+  color: var(--pastel-mint);
 }
 
 /* Esqueleto de carga nativo de Bootstrap */
@@ -242,33 +287,33 @@ body {
 }
 
 .btn-primary {
-  --bs-btn-color: #09090b;
-  --bs-btn-bg: var(--accent);
-  --bs-btn-border-color: var(--accent);
-  --bs-btn-hover-color: #09090b;
-  --bs-btn-hover-bg: var(--accent-hover);
-  --bs-btn-hover-border-color: var(--accent-hover);
-  --bs-btn-active-color: #09090b;
-  --bs-btn-active-bg: #d4d4d8;
-  --bs-btn-active-border-color: #d4d4d8;
+  --bs-btn-color: #0b0b0d;
+  --bs-btn-bg: var(--pastel-mint);
+  --bs-btn-border-color: var(--pastel-mint);
+  --bs-btn-hover-color: #0b0b0d;
+  --bs-btn-hover-bg: #bff0dd;
+  --bs-btn-hover-border-color: #bff0dd;
+  --bs-btn-active-color: #0b0b0d;
+  --bs-btn-active-bg: #96dcc0;
+  --bs-btn-active-border-color: #96dcc0;
   --bs-btn-disabled-color: #71717a;
   --bs-btn-disabled-bg: #27272a;
   --bs-btn-disabled-border-color: #27272a;
-  --bs-btn-focus-shadow-rgb: 113, 113, 122;
+  --bs-btn-focus-shadow-rgb: 168, 230, 207;
 }
 
 .btn-outline-primary {
-  --bs-btn-color: #f4f4f5;
-  --bs-btn-border-color: #3f3f46;
-  --bs-btn-hover-color: #ffffff;
-  --bs-btn-hover-bg: #1f1f23;
-  --bs-btn-hover-border-color: #52525b;
-  --bs-btn-active-color: #ffffff;
-  --bs-btn-active-bg: #27272a;
-  --bs-btn-active-border-color: #52525b;
+  --bs-btn-color: var(--pastel-sky);
+  --bs-btn-border-color: rgba(169, 201, 240, 0.35);
+  --bs-btn-hover-color: #0b0b0d;
+  --bs-btn-hover-bg: var(--pastel-sky);
+  --bs-btn-hover-border-color: var(--pastel-sky);
+  --bs-btn-active-color: #0b0b0d;
+  --bs-btn-active-bg: #96b8e4;
+  --bs-btn-active-border-color: #96b8e4;
   --bs-btn-disabled-color: #71717a;
   --bs-btn-disabled-border-color: #27272a;
-  --bs-btn-focus-shadow-rgb: 113, 113, 122;
+  --bs-btn-focus-shadow-rgb: 169, 201, 240;
 }
 
 /* ------------------------------------------------------------------ Formulario */
@@ -288,8 +333,8 @@ textarea.form-control {
 .form-select:focus {
   background-color: var(--bs-body-bg);
   color: var(--bs-body-color);
-  border-color: #52525b;
-  box-shadow: 0 0 0 2px rgba(113, 113, 122, 0.5);
+  border-color: rgba(169, 201, 240, 0.6);
+  box-shadow: 0 0 0 2px rgba(169, 201, 240, 0.28);
 }
 .form-select {
   --bs-form-select-bg-img: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23a1a1aa' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
@@ -306,12 +351,15 @@ textarea.form-control {
   border-color: #3f3f46;
 }
 .form-check-input:checked {
-  background-color: #52525b;
-  border-color: #52525b;
+  background-color: var(--pastel-mint);
+  border-color: var(--pastel-mint);
+}
+.form-switch .form-check-input:checked {
+  --bs-form-switch-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%230b0b0d'/%3e%3c/svg%3e");
 }
 .form-check-input:focus {
-  border-color: #52525b;
-  box-shadow: 0 0 0 2px rgba(113, 113, 122, 0.5);
+  border-color: var(--pastel-sky);
+  box-shadow: 0 0 0 2px rgba(169, 201, 240, 0.28);
 }
 .form-check-label {
   color: var(--bs-secondary-color);
@@ -329,13 +377,13 @@ textarea.form-control {
 
 .kbd {
   display: inline-block;
-  background: #18181b;
-  border: 1px solid #3f3f46;
+  background: var(--pastel-sky-soft);
+  border: 1px solid rgba(169, 201, 240, 0.25);
   border-radius: 4px;
   padding: 1px 6px;
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--bs-secondary-color);
+  color: var(--pastel-sky);
 }
 
 /* ------------------------------------------------------------------- Mensajes */
@@ -422,6 +470,9 @@ textarea.form-control {
 #sources a {
   color: var(--bs-body-color);
 }
+#sources a:hover {
+  color: var(--pastel-sky);
+}
 #sources .list-group-item > :last-child {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -434,11 +485,11 @@ textarea.form-control {
   width: 20px;
   height: 20px;
   margin-right: 8px;
-  border: 1px solid #3f3f46;
+  border: 1px solid var(--pastel-mint-line);
   border-radius: 4px;
   font-size: 11px;
-  color: var(--bs-secondary-color);
-  background: #18181b;
+  color: var(--pastel-mint);
+  background: var(--pastel-mint-soft);
 }
 
 /* --------------------------------------------------------------------- Badges */
@@ -455,10 +506,19 @@ textarea.form-control {
   color: var(--bs-secondary-color);
 }
 #health.is-ready {
-  color: var(--bs-body-color);
+  color: var(--pastel-mint);
+  border-color: var(--pastel-mint-line);
+  background: var(--pastel-mint-soft);
 }
 #health.is-offline {
   color: var(--bs-form-invalid-color);
+}
+/* Contadores de documentos y de fuentes citadas */
+#doc-count,
+#source-count {
+  background: var(--pastel-mint-soft);
+  border: 1px solid var(--pastel-mint-line);
+  color: var(--pastel-mint);
 }
 
 /* --------------------------------------------------------------------- Toasts */
@@ -472,7 +532,7 @@ textarea.form-control {
   --bs-toast-header-border-color: var(--bs-border-color);
 }
 .toast-danger {
-  border-color: var(--bs-form-invalid-color);
+  border-color: var(--pastel-rose);
 }
 /* En pantallas muy estrechas el aviso nunca debe salirse del viewport. */
 .toast-container {
@@ -519,9 +579,9 @@ footer {
 }
 #examples .btn:hover,
 #examples .btn:focus {
-  color: var(--bs-emphasis-color);
-  background: #1f1f23;
-  border-color: #52525b;
+  color: var(--pastel-sky);
+  background: var(--pastel-sky-soft);
+  border-color: rgba(169, 201, 240, 0.4);
 }
 
 .help-steps,

@@ -157,8 +157,9 @@ function renderDocuments(animate = false) {
     if (animate) row.style.animationDelay = Math.min(i * 20, 200) + 'ms';
 
     const badge = document.createElement('span');
-    badge.className = 'file-badge';
-    badge.textContent = fileKind(doc.mime_type);
+    const kind = fileKind(doc.mime_type);
+    badge.className = 'file-badge file-badge--' + kind.toLowerCase();
+    badge.textContent = kind;
 
     const a = document.createElement('a');
     a.className = 'text-truncate';

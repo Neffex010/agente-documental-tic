@@ -47,7 +47,7 @@ El proyecto emplea una **Arquitectura Híbrida Desacoplada** para superar las li
 - **Framework API:** Python 3.11+ (3.12 en Vercel) / FastAPI / Uvicorn
 - **IA y Modelos:** OpenAI `gpt-4o-mini` (configurable con `OPENAI_MODEL`) / OpenAI Vector Stores (File Search · RAG)
 - **Integración Cloud:** Google Drive API (v3) / Google OAuth Platform (Desktop) o cuenta de servicio
-- **Frontend:** HTML5 + CSS propio (tema oscuro zinc) + Vanilla JS (ES Modules) + Bootstrap 5.3
+- **Frontend:** HTML5 + CSS propio (tema oscuro zinc con acentos pastel) + Vanilla JS (ES Modules) + Bootstrap 5.3
 - **Pruebas y Calidad:** Pytest (5/5 pruebas en verde)
 - **Despliegue:** Vercel (red serverless)
 
