@@ -144,7 +144,7 @@ Ejemplo JSON para Thunder Client:
 5. Modifica un documento, vuelve a sincronizar y verifica que no se duplican registros en el manifiesto.
 6. Elimina un documento de prueba del Drive autorizado, sincroniza y comprueba que desaparece del manifiesto y del índice.
 
-**Limitaciones:** las búsquedas RAG pueden generar errores; comprueba siempre las respuestas contra las fuentes. La eliminación del índice tiene **consistencia eventual** y puede tardar en reflejarse. Los resultados sin citas explícitas no se presentan como fuentes. La actualización de un mismo archivo puede crear cargos transitorios mientras se reemplaza el anterior.
+**Limitaciones:** las búsquedas RAG pueden generar errores; comprueba siempre las respuestas contra las fuentes. La eliminación del índice tiene **consistencia eventual** y puede tardar en reflejarse. Los resultados sin citas explícitas no se presentan como fuentes. La actualización de un mismo archivo puede crear cargos transitorios mientras se reemplaza el anterior. La búsqueda recupera fragmentos, no la carpeta completa, así que una pregunta general («resume todos los archivos») puede cubrir solo una parte de la base: para el detalle conviene preguntar **por archivo**, escribiendo su nombre como aparece en «Base documental».
 
 ---
 
