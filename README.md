@@ -2,7 +2,7 @@
 
 **Práctica 2.3: Agente documental con Google Drive y búsqueda semántica RAG**
 **Institución:** Tecnológico Nacional de México · Campus Pachuca
-**Carrera:** Ingeniería en Sistemas Computacionales
+**Carrera:** Ingeniería en Tecnologías de la Información y Comunicaciones
 **Asignatura:** Inteligencia Artificial Aplicada a las TIC
 
 🚀 **Demo en Producción:** [https://agente-documental-tic-gray.vercel.app/](https://agente-documental-tic-gray.vercel.app/)
