@@ -548,6 +548,9 @@ footer {
   margin-top: 32px;
   padding-top: 24px;
 }
+.footer-link:hover {
+  color: var(--pastel-sky) !important;
+}
 
 /* ------------------------------------------------- Aparición de elementos */
 @keyframes fade-in-up {
