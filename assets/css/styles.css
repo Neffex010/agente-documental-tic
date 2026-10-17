@@ -637,6 +637,10 @@ footer {
     width: 100%;
     flex: 1 0 100%;
   }
+  /* El enlace al repositorio también debe poder pulsarse con el dedo. */
+  .footer-link {
+    min-height: 44px;
+  }
 }
 
 /* ------------------------------------------------------ Movimiento reducido */
