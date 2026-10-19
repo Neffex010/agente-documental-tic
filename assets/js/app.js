@@ -397,7 +397,7 @@ async function ask() {
     const copy = el('copy-answer');
     if (copy) copy.disabled = !state.lastAnswer;
     if (useSearch && !sources.length) {
-      setMessage('Consulta finalizada. El modelo no citó documentos: reformula la pregunta o comprueba la búsqueda documental.');
+      setMessage('Consulta finalizada. No se citaron documentos. Revisa la respuesta: el agente puede haber hecho una pregunta de aclaración para buscar mejor.');
     } else {
       setMessage('Consulta finalizada.');
     }
