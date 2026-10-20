@@ -5,6 +5,33 @@ const el = (id) => document.getElementById(id);
 
 const state = { documents: [], lastAnswer: '' };
 
+/* --------------------------------------------------------------- almacenamiento */
+const STORAGE_KEYS = {
+  documents: 'archivo-tic:documents',
+  question: 'archivo-tic:question',
+  filter: 'archivo-tic:filter',
+  sort: 'archivo-tic:sort',
+};
+
+function readStore(store, key) {
+  try { return store.getItem(key); } catch (_) { return null; }
+}
+
+function writeStore(store, key, value) {
+  try {
+    if (value) store.setItem(key, value);
+    else store.removeItem(key);
+  } catch (_) { /* almacenamiento no disponible (modo privado) */ }
+}
+
+function debounce(fn, wait = 150) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), wait);
+  };
+}
+
 /* ------------------------------------------------------------------- helpers */
 function linkFor(source) {
   if (!source || !source.url) return null;
@@ -187,16 +214,49 @@ function renderDocuments(animate = false) {
 }
 
 async function loadDocuments(animate = true) {
-  el('documents').replaceChildren(skeleton());
-  const r = await api.documents();
-  state.documents = r.documents || [];
-  renderDocuments(animate);
+  const cached = cachedDocuments();
+  if (cached && cached.documents.length) {
+    // Pintado inmediato con la última lista vista; se refresca en segundo plano.
+    state.documents = cached.documents;
+    renderDocuments(false);
+    applyDocNote(cached.source);
+  } else {
+    el('documents').replaceChildren(skeleton());
+  }
+  try {
+    const r = await api.documents();
+    state.documents = r.documents || [];
+    cacheDocuments({ documents: state.documents, source: r.source });
+    renderDocuments(!cached && animate);
+    applyDocNote(r.source);
+  } catch (e) {
+    // Con caché disponible se conserva la vista previa y no se interrumpe al usuario.
+    if (!cached || !cached.documents.length) throw e;
+  }
+}
+
+function applyDocNote(source) {
   const note = el('doc-note');
   if (note) {
-    note.textContent = r.source === 'vector_store'
+    note.textContent = source === 'vector_store'
       ? 'Recuperados desde el índice en OpenAI (sin historial local).'
       : 'Archivos indexados desde una carpeta autorizada de Google Drive.';
   }
+}
+
+function cachedDocuments() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEYS.documents);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && Array.isArray(parsed.documents) ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function cacheDocuments(payload) {
+  try { sessionStorage.setItem(STORAGE_KEYS.documents, JSON.stringify(payload)); } catch (_) {}
 }
 
 /* ------------------------------------------------------------------ consulta */
@@ -391,6 +451,7 @@ async function ask() {
   try {
     const data = await api.ask(q, useSearch);
     state.lastAnswer = data.answer || '';
+    writeStore(localStorage, STORAGE_KEYS.question, q);
     renderAnswer(state.lastAnswer);
     const sources = data.sources || [];
     renderSources(sources);
@@ -476,6 +537,7 @@ function onKeydown(e) {
   } else if (e.key === 'Escape') {
     el('question').value = '';
     el('question').classList.remove('is-invalid');
+    writeStore(localStorage, STORAGE_KEYS.question, '');
     updateCharCount();
     setMessage('');
   } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -485,14 +547,39 @@ function onKeydown(e) {
 }
 
 /* ------------------------------------------------------------------ arranque */
+// Restaura la última consulta y las preferencias de la lista.
+const savedQuestion = readStore(localStorage, STORAGE_KEYS.question);
+if (savedQuestion) el('question').value = savedQuestion;
+const savedFilter = readStore(localStorage, STORAGE_KEYS.filter);
+if (savedFilter && el('doc-filter')) el('doc-filter').value = savedFilter;
+const savedSort = readStore(localStorage, STORAGE_KEYS.sort);
+if (savedSort && el('doc-sort')) el('doc-sort').value = savedSort;
+
+const persistQuestion = debounce(
+  () => writeStore(localStorage, STORAGE_KEYS.question, el('question').value.trim()),
+  300
+);
+const persistFilter = debounce(
+  (value) => writeStore(localStorage, STORAGE_KEYS.filter, value),
+  250
+);
+const renderFiltered = debounce(() => renderDocuments(false), 150);
+
 el('ask').addEventListener('click', ask);
 el('sync').addEventListener('click', sync);
 el('question').addEventListener('input', () => {
   el('question').classList.remove('is-invalid');
   updateCharCount();
+  persistQuestion();
 });
-el('doc-filter')?.addEventListener('input', () => renderDocuments(false));
-el('doc-sort')?.addEventListener('change', () => renderDocuments(false));
+el('doc-filter')?.addEventListener('input', (event) => {
+  persistFilter(event.target.value);
+  renderFiltered();
+});
+el('doc-sort')?.addEventListener('change', (event) => {
+  writeStore(localStorage, STORAGE_KEYS.sort, event.target.value);
+  renderDocuments(false);
+});
 el('copy-answer')?.addEventListener('click', copyAnswer);
 el('clear-answer')?.addEventListener('click', clearAnswer);
 document.addEventListener('keydown', onKeydown);
