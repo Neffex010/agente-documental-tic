@@ -36,3 +36,30 @@ def test_sync_abierto_sin_clave(monkeypatch):
     monkeypatch.setattr(main, "settings", replace(main.settings, openai_api_key=""))
     r = client.post("/api/sync")
     assert r.status_code == 400
+
+
+def test_ask_devuelve_documentos_consultados(monkeypatch):
+    """La respuesta incluye ``retrieved`` aunque el modelo no cite nada."""
+    from dataclasses import replace
+    import app.main as main
+
+    class FakeAgent:
+        def ask(self, question, use_search):
+            return {
+                "success": True,
+                "answer": "respuesta",
+                "sources": [],
+                "retrieved": [{
+                    "name": "manual.pdf",
+                    "url": "https://drive.google.com/file/d/1/view",
+                }],
+            }
+
+    monkeypatch.setattr(main, "settings", replace(main.settings, openai_api_key="test"))
+    monkeypatch.setattr(main, "AgentService", lambda: FakeAgent())
+
+    r = client.post("/api/ask", json={"question": "pregunta"})
+
+    assert r.status_code == 200
+    assert r.json()["sources"] == []
+    assert r.json()["retrieved"][0]["name"] == "manual.pdf"

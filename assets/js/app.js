@@ -260,19 +260,64 @@ function cacheDocuments(payload) {
 }
 
 /* ------------------------------------------------------------------ consulta */
-function renderSources(sources) {
+function sourceKey(source) {
+  const url = String(source?.url || '').trim();
+  return url || String(source?.name || '').trim().toLowerCase();
+}
+
+function dedupeSources(list) {
+  const seen = new Set();
+  return (list || []).filter((source) => {
+    if (!source) return false;
+    const key = sourceKey(source);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function renderSources(sources, retrieved = []) {
   const list = el('sources');
   list.replaceChildren();
+  const title = el('sources-title');
   const count = el('source-count');
-  if (count) count.textContent = String(sources.length);
-  if (!sources.length) {
+
+  const cited = dedupeSources(sources);
+  const citedKeys = new Set(cited.map(sourceKey));
+  // Solo se muestran como consultados los que no fueron citados ya.
+  const consulted = dedupeSources(retrieved).filter((s) => {
+    const key = sourceKey(s);
+    return key && !citedKeys.has(key);
+  });
+  const shown = cited.length ? cited : consulted;
+  const kind = cited.length ? 'cited' : 'consulted';
+  const sectionLabel = cited.length || !consulted.length
+    ? 'Fuentes verificables'
+    : 'Documentos consultados';
+
+  if (title) title.textContent = sectionLabel;
+  if (count) {
+    count.textContent = String(shown.length);
+    count.setAttribute('aria-label', cited.length ? 'Fuentes citadas' : 'Documentos consultados');
+  }
+  list.setAttribute('aria-label', cited.length ? 'Fuentes citadas' : 'Documentos consultados');
+
+  if (!shown.length) {
     const li = document.createElement('li');
     li.className = 'list-group-item px-0 text-body-secondary';
     li.textContent = 'No se recibieron citas verificables para esta respuesta.';
     list.append(li);
     return;
   }
-  sources.forEach((source, i) => {
+
+  if (kind === 'consulted') {
+    const note = document.createElement('li');
+    note.className = 'list-group-item px-0 text-body-secondary small';
+    note.textContent = 'El modelo no citó fragmentos concretos, pero consultó estos documentos:';
+    list.append(note);
+  }
+
+  shown.forEach((source, i) => {
     const li = document.createElement('li');
     li.className = 'list-group-item px-0 fade-in';
     li.style.animationDelay = Math.min(i * 25, 200) + 'ms';
@@ -400,6 +445,8 @@ function clearAnswer() {
   state.lastAnswer = '';
   el('answer').replaceChildren();
   el('sources').replaceChildren();
+  const title = el('sources-title');
+  if (title) title.textContent = 'Fuentes verificables';
   const count = el('source-count');
   if (count) count.textContent = '0';
   const copy = el('copy-answer');
@@ -410,7 +457,7 @@ function clearAnswer() {
 const EXAMPLES = [
   '¿Qué se recomienda para reparar laptops?',
   'Resume las ideas principales sobre inteligencia artificial.',
-  '¿Qué cuidados tiene una instalación eléctrica de interior?',
+  '¿Qué pasos sigue el desensamble de una laptop?',
 ];
 
 function renderExamples() {
@@ -454,10 +501,13 @@ async function ask() {
     writeStore(localStorage, STORAGE_KEYS.question, q);
     renderAnswer(state.lastAnswer);
     const sources = data.sources || [];
-    renderSources(sources);
+    const retrieved = data.retrieved || [];
+    renderSources(sources, retrieved);
     const copy = el('copy-answer');
     if (copy) copy.disabled = !state.lastAnswer;
-    if (useSearch && !sources.length) {
+    if (useSearch && !sources.length && retrieved.length) {
+      setMessage('Consulta finalizada. El modelo no citó fragmentos concretos; abajo se listan los documentos que consultó.');
+    } else if (useSearch && !sources.length) {
       setMessage('Consulta finalizada. No se citaron documentos. Revisa la respuesta: el agente puede haber hecho una pregunta de aclaración para buscar mejor.');
     } else {
       setMessage('Consulta finalizada.');

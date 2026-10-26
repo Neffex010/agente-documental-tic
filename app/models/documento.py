@@ -8,7 +8,13 @@ class Source(BaseModel):
     name: str
     url: str | None = None
 
+class RetrievedSource(BaseModel):
+    """Documento que File Search consultó, aunque el modelo no lo citara."""
+    name: str
+    url: str | None = None
+
 class AskResponse(BaseModel):
     success: bool
     answer: str
-    sources: list[Source]
+    sources: list[Source] = Field(default_factory=list)
+    retrieved: list[RetrievedSource] = Field(default_factory=list)

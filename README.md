@@ -64,7 +64,7 @@ La interfaz incluye un *switch* para activar/desactivar el **File Search** (bús
 | **Citas y Fuentes** | No proporciona fuentes verificables. | Proporciona citas referenciadas a documentos específicos (ej. *'pdf-reparacion-de-laptops.pdf'*). |
 | **Tiempo de respuesta** | Menor a 2 segundos (inferencia directa). | Ligeramente mayor (~3-4 segundos) por el proceso intermedio de recuperación semántica (*retrieval*). |
 
-> Cuando el modelo **no** cita documentos, la interfaz lo indica de forma explícita ("el modelo no citó documentos") en lugar de mostrar una lista de fuentes vacía sin explicación.
+> Cuando el modelo **no** cita documentos, la interfaz lo indica de forma explícita y, si la búsqueda sí recuperó fragmentos, muestra la lista de **documentos consultados** con enlace a Drive. Las citas y los documentos consultados se deduplican por URL para no repetir versiones del mismo archivo.
 
 ---
 
@@ -144,7 +144,7 @@ Ejemplo JSON para Thunder Client:
 5. Modifica un documento, vuelve a sincronizar y verifica que no se duplican registros en el manifiesto.
 6. Elimina un documento de prueba del Drive autorizado, sincroniza y comprueba que desaparece del manifiesto y del índice.
 
-**Limitaciones:** las búsquedas RAG pueden generar errores; comprueba siempre las respuestas contra las fuentes. La eliminación del índice tiene **consistencia eventual** y puede tardar en reflejarse. Los resultados sin citas explícitas no se presentan como fuentes. La actualización de un mismo archivo puede crear cargos transitorios mientras se reemplaza el anterior. La búsqueda recupera fragmentos, no la carpeta completa, así que una pregunta general («resume todos los archivos») puede cubrir solo una parte de la base: para el detalle conviene preguntar **por archivo**, escribiendo su nombre como aparece en «Base documental».
+**Limitaciones:** las búsquedas RAG pueden generar errores; comprueba siempre las respuestas contra las fuentes. La eliminación del índice tiene **consistencia eventual** y puede tardar en reflejarse. Los resultados sin citas explícitas no se presentan como fuentes, sino como **documentos consultados**. La actualización de un mismo archivo puede crear cargos transitorios mientras se reemplaza el anterior. La búsqueda recupera fragmentos, no la carpeta completa, así que una pregunta general («resume todos los archivos») puede cubrir solo una parte de la base: para el detalle conviene preguntar **por archivo**, escribiendo su nombre como aparece en «Base documental».
 
 ---
 

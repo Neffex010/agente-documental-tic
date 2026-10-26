@@ -78,24 +78,32 @@ class SyncService:
             drive_id = str(attrs.get("drive_id") or "")
             if not drive_id:
                 continue
-            docs[drive_id] = {
+            candidate = {
                 "name": str(attrs.get("name") or ""),
                 "modified_time": attrs.get("modified_time") or None,
                 "mime_type": str(attrs.get("mime_type") or ""),
                 "openai_file_id": item.id,
                 "url": str(attrs.get("url") or ""),
             }
+            previous = docs.get(drive_id)
+            if previous and str(previous.get("modified_time") or "") > str(
+                candidate["modified_time"] or ""
+            ):
+                # Versiones duplicadas: se conserva la más reciente.
+                continue
+            docs[drive_id] = candidate
             restored += 1
         return restored
 
     def _purge_orphans(self, docs: dict, store: str) -> int:
-        """Elimina restos de versiones anteriores que ya no corresponden a nada.
+        """Elimina versiones antiguas y restos que ya no corresponden al manifiesto.
 
-        Solo toca archivos con atributos de nombre pero sin ``drive_id`` (los
-        creados por versiones antiguas); nunca elimina algo indexado por la
-        versión actual, que siempre guarda ``drive_id``.
+        Se conserva siempre el archivo vigente de cada ``drive_id``. Solo se
+        borran los que no figuran en ``docs``: versiones anteriores del mismo
+        documento (mismo ``drive_id``, otro ``file_id``) y subidas antiguas sin
+        atributos. Si no se pueden leer los atributos, el archivo no se toca.
         """
-        known = {d.get("openai_file_id") for d in docs.values()}
+        known = {d.get("openai_file_id") for d in docs.values() if d.get("openai_file_id")}
         removed = 0
         for item in self.client.vector_stores.files.list(
             vector_store_id=store, limit=100
@@ -103,7 +111,9 @@ class SyncService:
             if item.id in known:
                 continue
             attrs = self._file_attributes(store, item)
-            if not attrs.get("name") or attrs.get("drive_id"):
+            name = str(attrs.get("name") or "")
+            drive_id = str(attrs.get("drive_id") or "")
+            if not name and not drive_id:
                 continue
             try:
                 self.client.vector_stores.files.delete(
@@ -287,6 +297,7 @@ def list_indexed_documents(client=None, limit: int = 100) -> list:
         return []
 
     documents = []
+    seen = set()
     for item in client.vector_stores.files.list(vector_store_id=store, limit=limit):
         if getattr(item, "status", "") not in ("", "completed"):
             continue
@@ -311,6 +322,11 @@ def list_indexed_documents(client=None, limit: int = 100) -> list:
                 name = ""
         if not mime:
             mime = _mime_from_name(name)
+        # Deduplicar versiones antiguas del mismo documento de Drive.
+        key = url or name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
         documents.append(
             {
                 "name": name or file_id,
