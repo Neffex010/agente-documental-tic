@@ -28,13 +28,22 @@
         <h1 class="h2 mb-1">Archivo TIC <span>IA</span></h1>
         <p class="m-0 text-body-secondary">Agente documental con Google Drive y búsqueda semántica RAG</p>
       </div>
-      <span class="badge py-2 px-3" id="health" role="status" aria-live="polite">Comprobando servidor…</span>
+      <span class="badge py-2 px-3" id="health" role="status" aria-live="polite">
+        <span class="status-dot" aria-hidden="true"></span><span id="health-text">Comprobando servidor…</span>
+      </span>
     </div>
   </header>
 
+  <div class="container">
+    <div id="offline-banner" class="offline-banner mt-3 d-none" role="status" aria-live="polite">
+      <span>Sin conexión con el servidor. Comprueba tu red o inténtalo de nuevo.</span>
+      <button type="button" id="retry-connection" class="btn btn-outline-primary btn-sm focus-ring">Reintentar</button>
+    </div>
+  </div>
+
   <main id="consulta" class="container py-4">
     <div class="row g-4">
-      <div class="col-lg-4">
+      <div class="col-lg-4 order-2 order-lg-1">
         <section class="card shell h-100" aria-labelledby="docs-title">
           <div class="card-body d-flex flex-column">
             <div class="d-flex align-items-center justify-content-between">
@@ -46,6 +55,8 @@
             <div class="doc-toolbar d-flex gap-2 mt-3 mb-2">
               <input type="search" id="doc-filter" class="form-control form-control-sm"
                 placeholder="Filtrar archivos…" aria-label="Filtrar documentos" autocomplete="off">
+              <button type="button" id="clear-filter" class="btn btn-outline-primary btn-sm focus-ring d-none"
+                aria-label="Limpiar filtro" title="Limpiar filtro">×</button>
               <select id="doc-sort" class="form-select form-select-sm" aria-label="Ordenar documentos">
                 <option value="name">Nombre</option>
                 <option value="modified">Recientes</option>
@@ -70,13 +81,13 @@
         </section>
       </div>
 
-      <div class="col-lg-8">
+      <div class="col-lg-8 order-1 order-lg-2">
         <section class="card shell" aria-labelledby="ask-title">
           <div class="card-body">
             <h2 class="h5" id="ask-title">Consultar al agente</h2>
             <div class="form-floating mt-3">
               <textarea class="form-control" id="question" rows="3" maxlength="3000"
-                placeholder="Escribe aquí tu pregunta" required aria-describedby="ask-hint"></textarea>
+                placeholder="Escribe aquí tu pregunta" required aria-describedby="ask-hint question-error"></textarea>
               <div class="invalid-feedback" id="question-error">Escribe una pregunta de al menos 3 caracteres.</div>
               <label for="question">Pregunta sobre los documentos</label>
             </div>
@@ -93,7 +104,7 @@
               </p>
               <span id="char-count" class="char-count">0 / 3000</span>
             </div>
-            <div id="message" role="status" class="small mt-3" aria-live="polite"></div>
+            <div id="message" role="status" class="small mt-3" aria-live="polite" aria-atomic="true"></div>
 
             <div class="examples mt-3 pt-3">
               <span class="small text-body-secondary">Preguntas de ejemplo</span>
@@ -111,7 +122,7 @@
                 <button type="button" id="copy-answer" class="btn btn-outline-primary btn-sm focus-ring" disabled>Copiar</button>
               </div>
             </div>
-            <div id="answer" class="answer mt-3" aria-live="polite"></div>
+            <div id="answer" class="answer mt-3" tabindex="-1"></div>
             <div class="d-flex align-items-center gap-2 mt-4">
               <h3 class="h6 mb-0" id="sources-title">Fuentes verificables</h3>
               <span class="badge" id="source-count" aria-label="Fuentes citadas">0</span>
@@ -172,6 +183,25 @@
       <div class="alert alert-warning mb-0">Esta interfaz requiere JavaScript para consultar al agente documental.</div>
     </div>
   </noscript>
+
+  <div class="modal fade" id="sync-modal" tabindex="-1" aria-labelledby="sync-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title h5" id="sync-modal-title">Sincronizar desde Drive</h2>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2">Se revisará la carpeta autorizada de Google Drive y se actualizará el índice de búsqueda.</p>
+          <p class="small text-body-secondary mb-0">Puede tardar hasta un minuto. No cierres la página durante el proceso.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-primary focus-ring" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary focus-ring" id="sync-confirm">Sincronizar</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toasts" aria-live="polite" aria-atomic="true"></div>
 

@@ -3,7 +3,14 @@ import { ApiClient } from './api.js';
 const api = new ApiClient();
 const el = (id) => document.getElementById(id);
 
-const state = { documents: [], lastAnswer: '' };
+const state = {
+  documents: [],
+  lastAnswer: '',
+  lastSources: [],
+  lastRetrieved: [],
+  busy: false,
+  syncing: false,
+};
 
 /* --------------------------------------------------------------- almacenamiento */
 const STORAGE_KEYS = {
@@ -11,6 +18,7 @@ const STORAGE_KEYS = {
   question: 'archivo-tic:question',
   filter: 'archivo-tic:filter',
   sort: 'archivo-tic:sort',
+  answer: 'archivo-tic:answer',
 };
 
 function readStore(store, key) {
@@ -42,23 +50,49 @@ function linkFor(source) {
   return null;
 }
 
-function setMessage(text, danger = false) {
+const MESSAGE_CLASSES = {
+  danger: 'text-danger',
+  success: 'text-success',
+  warning: 'text-warning',
+  info: 'text-info',
+};
+
+function setMessage(text, tone = '') {
   const node = el('message');
+  if (!node) return;
+  const key = tone === true ? 'danger' : (tone || '');
   node.textContent = text || '';
-  node.className = 'small mt-3 ' + (danger ? 'text-danger' : 'text-body-secondary');
+  node.className = 'small mt-3 ' + (MESSAGE_CLASSES[key] || 'text-body-secondary');
 }
 
+const TOAST_CLASSES = {
+  danger: 'toast-danger',
+  success: 'toast-success',
+  warning: 'toast-warning',
+  info: 'toast-info',
+};
+const recentToasts = new Map();
+
 function notify(message, variant = 'secondary') {
+  const text = String(message || '').trim();
+  if (!text) return;
+
+  // Evita repetir el mismo aviso si el usuario pulsa dos veces seguidas.
+  const now = Date.now();
+  const last = recentToasts.get(text);
+  if (last && now - last < 5000) return;
+  recentToasts.set(text, now);
+  setTimeout(() => {
+    if (recentToasts.get(text) === now) recentToasts.delete(text);
+  }, 5000);
+
   const container = el('toasts');
   if (!container || typeof bootstrap === 'undefined') {
-    setMessage(message, variant === 'danger');
+    setMessage(text, variant === 'secondary' ? '' : variant);
     return;
   }
   const toast = document.createElement('div');
-  toast.className = 'toast align-items-center' + (variant === 'danger' ? ' toast-danger' : '');
-  toast.setAttribute('role', 'alert');
-  toast.setAttribute('aria-live', 'assertive');
-  toast.setAttribute('aria-atomic', 'true');
+  toast.className = 'toast align-items-center' + (TOAST_CLASSES[variant] ? ' ' + TOAST_CLASSES[variant] : '');
 
   const flex = document.createElement('div');
   flex.className = 'd-flex';
@@ -75,7 +109,10 @@ function notify(message, variant = 'secondary') {
   container.append(toast);
 
   const instance = new bootstrap.Toast(toast, { delay: 4000 });
-  toast.addEventListener('hidden.bs.toast', () => toast.remove());
+  toast.addEventListener('hidden.bs.toast', () => {
+    toast.remove();
+    if (recentToasts.get(text) === now) recentToasts.delete(text);
+  });
   instance.show();
 }
 
@@ -100,6 +137,62 @@ function setLoading(button, loading, label) {
 function setLoadingLabel(button, label) {
   const node = button && button.lastChild;
   if (node && node.nodeType === 3) node.nodeValue = label;
+}
+
+function markQuestionInvalid(invalid) {
+  const input = el('question');
+  if (!input) return;
+  input.classList.toggle('is-invalid', invalid);
+  if (invalid) {
+    input.setAttribute('aria-invalid', 'true');
+    input.setAttribute('aria-describedby', 'ask-hint question-error');
+  } else {
+    input.removeAttribute('aria-invalid');
+    input.setAttribute('aria-describedby', 'ask-hint');
+  }
+}
+
+function showOffline(offline) {
+  const banner = el('offline-banner');
+  if (banner) banner.classList.toggle('d-none', !offline);
+}
+
+function setHealth(status) {
+  const node = el('health');
+  const label = el('health-text');
+  if (!node || !label) return;
+
+  node.classList.remove('is-ready', 'is-offline');
+  if (status === 'ready') {
+    label.textContent = 'Servicio en línea';
+    node.title = 'El servicio responde y hay clave de OpenAI y carpeta de Drive configuradas.';
+    node.classList.add('is-ready');
+  } else if (status === 'pending') {
+    label.textContent = 'Configuración pendiente';
+    node.title = 'Falta OPENAI_API_KEY o GOOGLE_DRIVE_FOLDER_ID en el servidor.';
+    node.classList.add('is-offline');
+  } else if (status === 'offline') {
+    label.textContent = 'Sin conexión';
+    node.title = 'No se pudo contactar con el servicio.';
+    node.classList.add('is-offline');
+  } else {
+    label.textContent = 'Comprobando servidor…';
+    node.removeAttribute('title');
+  }
+}
+
+async function checkHealth() {
+  setHealth('checking');
+  try {
+    const r = await api.health();
+    setHealth(r.configured ? 'ready' : 'pending');
+    showOffline(false);
+    return Boolean(r.configured);
+  } catch (_) {
+    setHealth('offline');
+    showOffline(true);
+    return false;
+  }
 }
 
 function fileKind(mime = '') {
@@ -220,6 +313,7 @@ async function loadDocuments(animate = true) {
     state.documents = cached.documents;
     renderDocuments(false);
     applyDocNote(cached.source);
+    renderExamples();
   } else {
     el('documents').replaceChildren(skeleton());
   }
@@ -229,9 +323,14 @@ async function loadDocuments(animate = true) {
     cacheDocuments({ documents: state.documents, source: r.source });
     renderDocuments(!cached && animate);
     applyDocNote(r.source);
+    renderExamples();
+    showOffline(false);
   } catch (e) {
     // Con caché disponible se conserva la vista previa y no se interrumpe al usuario.
-    if (!cached || !cached.documents.length) throw e;
+    if (!cached || !cached.documents.length) {
+      if (!e || !e.status || e.status >= 500) showOffline(true);
+      throw e;
+    }
   }
 }
 
@@ -441,8 +540,83 @@ function setAnswerThinking(on) {
   box.setAttribute('aria-busy', 'true');
 }
 
+/* Al consultar de nuevo se conserva la respuesta anterior atenuada hasta que
+   llega la nueva; si la petición falla, se restaura sin parpadeos. */
+function beginAnswerRefresh() {
+  const box = el('answer');
+  const hasContent = Boolean(box.querySelector('.answer-p, .answer-h, .answer-list'));
+  if (!hasContent) {
+    setAnswerThinking(true);
+    return false;
+  }
+  box.classList.add('is-loading');
+  box.setAttribute('aria-busy', 'true');
+  const status = document.createElement('div');
+  status.className = 'answer-thinking answer-thinking--inline';
+  status.id = 'answer-status';
+  const spinner = document.createElement('span');
+  spinner.className = 'spinner-border spinner-border-sm me-2';
+  spinner.setAttribute('aria-hidden', 'true');
+  const text = document.createElement('span');
+  text.textContent = 'Actualizando respuesta…';
+  status.append(spinner, text);
+  box.prepend(status);
+  return true;
+}
+
+function endAnswerRefresh() {
+  const box = el('answer');
+  if (!box) return;
+  box.classList.remove('is-loading');
+  box.removeAttribute('aria-busy');
+  const status = el('answer-status');
+  if (status) status.remove();
+}
+
+function focusAnswer() {
+  const box = el('answer');
+  if (!box) return;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  box.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
+  window.setTimeout(() => box.focus({ preventScroll: true }), reduce ? 0 : 220);
+}
+
+function persistAnswer() {
+  writeStore(
+    sessionStorage,
+    STORAGE_KEYS.answer,
+    JSON.stringify({
+      answer: state.lastAnswer,
+      sources: state.lastSources,
+      retrieved: state.lastRetrieved,
+    })
+  );
+}
+
+function restoreAnswer() {
+  const raw = readStore(sessionStorage, STORAGE_KEYS.answer);
+  if (!raw) return;
+  try {
+    const saved = JSON.parse(raw);
+    if (!saved || !saved.answer) return;
+    state.lastAnswer = saved.answer;
+    state.lastSources = Array.isArray(saved.sources) ? saved.sources : [];
+    state.lastRetrieved = Array.isArray(saved.retrieved) ? saved.retrieved : [];
+    renderAnswer(state.lastAnswer);
+    renderSources(state.lastSources, state.lastRetrieved);
+    const copy = el('copy-answer');
+    if (copy) copy.disabled = false;
+  } catch (_) {
+    // Datos corruptos o de una versión anterior: se ignoran.
+  }
+}
+
 function clearAnswer() {
   state.lastAnswer = '';
+  state.lastSources = [];
+  state.lastRetrieved = [];
+  writeStore(sessionStorage, STORAGE_KEYS.answer, '');
+  endAnswerRefresh();
   el('answer').replaceChildren();
   el('sources').replaceChildren();
   const title = el('sources-title');
@@ -454,17 +628,32 @@ function clearAnswer() {
   setMessage('');
 }
 
-const EXAMPLES = [
-  '¿Qué se recomienda para reparar laptops?',
-  'Resume las ideas principales sobre inteligencia artificial.',
-  '¿Qué pasos sigue el desensamble de una laptop?',
+const FALLBACK_EXAMPLES = [
+  'Resume las ideas principales de los documentos.',
+  '¿Qué recomendaciones prácticas contienen los archivos?',
+  '¿Qué pasos se describen en los documentos?',
 ];
+
+const EXAMPLE_TEMPLATES = [
+  (name) => `Resume ${name}`,
+  (name) => `¿Qué recomendaciones da ${name}?`,
+  (name) => `¿Cuáles son las ideas principales de ${name}?`,
+];
+
+function exampleQuestions() {
+  const names = state.documents
+    .map((doc) => String(doc.name || '').trim())
+    .filter(Boolean)
+    .slice(0, 3);
+  if (!names.length) return FALLBACK_EXAMPLES;
+  return names.map((name, i) => EXAMPLE_TEMPLATES[i % EXAMPLE_TEMPLATES.length](name));
+}
 
 function renderExamples() {
   const box = el('examples');
   if (!box) return;
   box.replaceChildren();
-  EXAMPLES.forEach((question) => {
+  exampleQuestions().forEach((question) => {
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = 'btn btn-outline-primary btn-sm focus-ring';
@@ -472,8 +661,9 @@ function renderExamples() {
     chip.addEventListener('click', () => {
       const input = el('question');
       input.value = question;
-      input.classList.remove('is-invalid');
+      markQuestionInvalid(false);
       updateCharCount();
+      persistQuestion();
       input.focus();
     });
     box.append(chip);
@@ -481,51 +671,80 @@ function renderExamples() {
 }
 
 async function ask() {
+  if (state.busy) return;
+
   const q = el('question').value.trim();
   if (q.length < 3) {
-    el('question').classList.add('is-invalid');
-    setMessage('Escribe una pregunta de al menos 3 caracteres.', true);
+    markQuestionInvalid(true);
+    setMessage('Escribe una pregunta de al menos 3 caracteres.', 'danger');
     el('question').focus();
     return;
   }
-  el('question').classList.remove('is-invalid');
+  markQuestionInvalid(false);
 
   const useSearch = el('use-search').checked;
   const button = el('ask');
+  const keptPrevious = beginAnswerRefresh();
+  state.busy = true;
   setLoading(button, true, 'Consultando…');
   setMessage('Consultando al agente…');
-  setAnswerThinking(true);
   try {
     const data = await api.ask(q, useSearch);
     state.lastAnswer = data.answer || '';
+    state.lastSources = data.sources || [];
+    state.lastRetrieved = data.retrieved || [];
+
     writeStore(localStorage, STORAGE_KEYS.question, q);
+    persistAnswer();
+    endAnswerRefresh();
     renderAnswer(state.lastAnswer);
-    const sources = data.sources || [];
-    const retrieved = data.retrieved || [];
-    renderSources(sources, retrieved);
+    renderSources(state.lastSources, state.lastRetrieved);
+
     const copy = el('copy-answer');
     if (copy) copy.disabled = !state.lastAnswer;
-    if (useSearch && !sources.length && retrieved.length) {
-      setMessage('Consulta finalizada. El modelo no citó fragmentos concretos; abajo se listan los documentos que consultó.');
-    } else if (useSearch && !sources.length) {
-      setMessage('Consulta finalizada. No se citaron documentos. Revisa la respuesta: el agente puede haber hecho una pregunta de aclaración para buscar mejor.');
+
+    if (useSearch && !state.lastSources.length && state.lastRetrieved.length) {
+      setMessage('Consulta finalizada. El modelo no citó fragmentos concretos; abajo se listan los documentos que consultó.', 'warning');
+    } else if (useSearch && !state.lastSources.length) {
+      setMessage('Consulta finalizada. No se citaron documentos. Revisa la respuesta: el agente puede haber hecho una pregunta de aclaración para buscar mejor.', 'warning');
     } else {
-      setMessage('Consulta finalizada.');
+      setMessage('Consulta finalizada.', 'success');
     }
+    focusAnswer();
   } catch (e) {
-    el('answer').replaceChildren();
-    const copy = el('copy-answer');
-    if (copy) copy.disabled = true;
-    setMessage(e.message, true);
+    endAnswerRefresh();
+    if (!keptPrevious) {
+      el('answer').replaceChildren();
+      el('answer').removeAttribute('aria-busy');
+    }
+    setMessage(e.message, 'danger');
     notify(e.message, 'danger');
+    if (!e || !e.status || e.status >= 500) showOffline(true);
   } finally {
-    el('answer').removeAttribute('aria-busy');
+    state.busy = false;
+    endAnswerRefresh();
     setLoading(button, false);
   }
 }
 
-async function sync() {
-  if (!confirm('¿Sincronizar archivos de la carpeta autorizada de Google Drive?\n\nPuede tardar hasta un minuto; no cierres la página.')) return;
+function sync() {
+  if (state.syncing) {
+    notify('Ya hay una sincronización en curso.', 'info');
+    return;
+  }
+  const modal = el('sync-modal');
+  if (!modal || typeof bootstrap === 'undefined') {
+    if (confirm('¿Sincronizar archivos de la carpeta autorizada de Google Drive?\n\nPuede tardar hasta un minuto; no cierres la página.')) {
+      runSync();
+    }
+    return;
+  }
+  bootstrap.Modal.getOrCreateInstance(modal).show();
+}
+
+async function runSync() {
+  if (state.syncing) return;
+  state.syncing = true;
   const button = el('sync');
   setLoading(button, true, 'Sincronizando…');
   setMessage('Sincronizando documentos…');
@@ -537,16 +756,21 @@ async function sync() {
   }, 1000);
   try {
     const r = await api.sync();
-    await loadDocuments();
     const stats = r.stats || { added: 0, updated: 0, removed: 0, unchanged: 0, errors: [] };
     const errores = (stats.errors || []).length;
     const summary = `Sincronización: ${stats.added} nuevos, ${stats.updated} actualizados, ${stats.removed} eliminados, ${stats.unchanged} sin cambios. Errores: ${errores}.`;
-    setMessage(summary);
-    notify(summary, errores ? 'danger' : 'success');
+    const tone = errores ? 'warning' : 'success';
+    setMessage(summary, tone);
+    notify(summary, tone);
+    showOffline(false);
+    // Si la recarga falla, se conserva la caché y el resumen de la sincronización.
+    await loadDocuments().catch(() => {});
   } catch (e) {
-    setMessage(e.message, true);
+    setMessage(e.message, 'danger');
     notify(e.message, 'danger');
+    if (!e || !e.status || e.status >= 500) showOffline(true);
   } finally {
+    state.syncing = false;
     clearInterval(timer);
     setLoading(button, false);
   }
@@ -562,18 +786,50 @@ function updateCharCount() {
   out.classList.toggle('is-near', q.value.length >= max * 0.9);
 }
 
+function updateFilterClear() {
+  const input = el('doc-filter');
+  const clear = el('clear-filter');
+  if (!input || !clear) return;
+  clear.classList.toggle('d-none', !input.value.trim());
+}
+
+function clearFilter() {
+  const input = el('doc-filter');
+  if (!input) return;
+  input.value = '';
+  writeStore(localStorage, STORAGE_KEYS.filter, '');
+  updateFilterClear();
+  renderDocuments(false);
+  input.focus();
+}
+
+async function retryConnection() {
+  const button = el('retry-connection');
+  if (button && button.disabled) return;
+  setLoading(button, true, 'Reintentando…');
+  await checkHealth();
+  try {
+    await loadDocuments(false);
+  } catch (_) {
+    // loadDocuments ya muestra el banner cuando corresponde.
+  }
+  setLoading(button, false);
+}
+
 async function copyAnswer() {
   if (!state.lastAnswer) return;
   const button = el('copy-answer');
+  const original = button.dataset.label || button.textContent;
+  button.dataset.label = original;
   try {
     await navigator.clipboard.writeText(state.lastAnswer);
-    button.textContent = 'Copiado';
-    notify('Respuesta copiada al portapapeles.');
+    button.textContent = '✓ Copiado';
+    notify('Respuesta copiada al portapapeles.', 'success');
     setTimeout(() => {
-      button.textContent = 'Copiar';
-    }, 1500);
+      button.textContent = original;
+    }, 1600);
   } catch (_) {
-    setMessage('No se pudo copiar al portapapeles.', true);
+    setMessage('No se pudo copiar al portapapeles.', 'danger');
   }
 }
 
@@ -586,13 +842,13 @@ function onKeydown(e) {
     el('question').focus();
   } else if (e.key === 'Escape') {
     el('question').value = '';
-    el('question').classList.remove('is-invalid');
+    markQuestionInvalid(false);
     writeStore(localStorage, STORAGE_KEYS.question, '');
     updateCharCount();
     setMessage('');
   } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
     e.preventDefault();
-    ask();
+    if (!state.busy) ask();
   }
 }
 
@@ -617,13 +873,23 @@ const renderFiltered = debounce(() => renderDocuments(false), 150);
 
 el('ask').addEventListener('click', ask);
 el('sync').addEventListener('click', sync);
+el('sync-confirm')?.addEventListener('click', () => {
+  const modal = el('sync-modal');
+  if (modal && typeof bootstrap !== 'undefined') {
+    bootstrap.Modal.getOrCreateInstance(modal).hide();
+  }
+  runSync();
+});
+el('retry-connection')?.addEventListener('click', retryConnection);
+el('clear-filter')?.addEventListener('click', clearFilter);
 el('question').addEventListener('input', () => {
-  el('question').classList.remove('is-invalid');
+  markQuestionInvalid(false);
   updateCharCount();
   persistQuestion();
 });
 el('doc-filter')?.addEventListener('input', (event) => {
   persistFilter(event.target.value);
+  updateFilterClear();
   renderFiltered();
 });
 el('doc-sort')?.addEventListener('change', (event) => {
@@ -633,33 +899,27 @@ el('doc-sort')?.addEventListener('change', (event) => {
 el('copy-answer')?.addEventListener('click', copyAnswer);
 el('clear-answer')?.addEventListener('click', clearAnswer);
 document.addEventListener('keydown', onKeydown);
-renderExamples();
+window.addEventListener('offline', () => {
+  setHealth('offline');
+  showOffline(true);
+});
+window.addEventListener('online', () => {
+  retryConnection();
+});
 
 // Red de seguridad: cualquier promesa rechazada sin capturar se informa al usuario.
 window.addEventListener('unhandledrejection', (event) => {
   const msg = (event.reason && (event.reason.message || event.reason)) || 'Error inesperado.';
-  setMessage(String(msg), true);
+  setMessage(String(msg), 'danger');
   notify(String(msg), 'danger');
 });
 
 updateCharCount();
-api
-  .health()
-  .then((r) => {
-    const node = el('health');
-    node.textContent = r.configured ? 'Servicio en línea' : 'Configuración pendiente';
-    node.title = r.configured
-      ? 'El servicio responde y hay clave de OpenAI y carpeta de Drive configuradas.'
-      : 'Falta OPENAI_API_KEY o GOOGLE_DRIVE_FOLDER_ID en el servidor.';
-    node.classList.add(r.configured ? 'is-ready' : 'is-offline');
-  })
-  .catch(() => {
-    const node = el('health');
-    node.textContent = 'Sin conexión';
-    node.title = 'No se pudo contactar con el servicio.';
-    node.classList.add('is-offline');
-  });
+updateFilterClear();
+restoreAnswer();
+renderExamples();
+checkHealth();
 loadDocuments().catch((e) => {
-  setMessage(e.message, true);
+  setMessage(e.message, 'danger');
   notify(e.message, 'danger');
 });
