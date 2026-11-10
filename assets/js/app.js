@@ -742,6 +742,25 @@ function sync() {
   bootstrap.Modal.getOrCreateInstance(modal).show();
 }
 
+/* En el despliegue público la autorización de Drive se concede en el equipo
+   del autor y caduca (token/credentials). Detecta esos errores para explicar
+   el estado real de la demo en vez de mostrar un fallo técnico críptico. */
+const DRIVE_AUTH_ERROR = /credential|token|oauth|invalid_grant|expired|revoked|autoriza|google_/i;
+
+function isDriveAuthError(error) {
+  if (!error) return false;
+  const status = Number(error.status || 0);
+  const message = String(error.message || '');
+  return DRIVE_AUTH_ERROR.test(message) && [400, 401, 403, 502].includes(status);
+}
+
+function driveUnavailableMessage() {
+  const total = state.documents.length;
+  const cuenta = total ? `los ${total} documentos ya indexados` : 'los documentos ya indexados';
+  return 'La sincronización con Drive no está disponible en este despliegue: el autor la autorizó en su equipo y el acceso caduca. ' +
+    `La demo quedó así a propósito: usa ${cuenta}; las preguntas, la búsqueda y las fuentes siguen funcionando con normalidad.`;
+}
+
 async function runSync() {
   if (state.syncing) return;
   state.syncing = true;
@@ -766,9 +785,16 @@ async function runSync() {
     // Si la recarga falla, se conserva la caché y el resumen de la sincronización.
     await loadDocuments().catch(() => {});
   } catch (e) {
-    setMessage(e.message, 'danger');
-    notify(e.message, 'danger');
-    if (!e || !e.status || e.status >= 500) showOffline(true);
+    if (isDriveAuthError(e)) {
+      // No es un fallo de red: es el estado esperado de la demo pública.
+      const mensaje = driveUnavailableMessage();
+      setMessage(mensaje, 'warning');
+      notify(mensaje, 'warning');
+    } else {
+      setMessage(e.message, 'danger');
+      notify(e.message, 'danger');
+      if (!e || !e.status || e.status >= 500) showOffline(true);
+    }
   } finally {
     state.syncing = false;
     clearInterval(timer);

@@ -157,6 +157,7 @@
             <ul class="help-list">
               <li>«Sin documentos indexados»: pulsa <strong>Sincronizar</strong> o revisa la carpeta autorizada.</li>
               <li>La sincronización falla: revisa <code>GOOGLE_DRIVE_FOLDER_ID</code> y las credenciales de Google, o reintenta (en Vercel el límite es de 60 s).</li>
+              <li>En el despliegue público, el acceso a Drive se autoriza en el equipo del autor y el token caduca: la sincronización puede no estar disponible. La demo quedó así a propósito; usa los documentos ya indexados.</li>
               <li>Respuesta sin fuentes: el modelo no citó documentos; revisa si te ha hecho una pregunta de aclaración para refinar la búsqueda.</li>
             </ul>
           </div>
@@ -193,7 +194,7 @@
         </div>
         <div class="modal-body">
           <p class="mb-2">Se revisará la carpeta autorizada de Google Drive y se actualizará el índice de búsqueda.</p>
-          <p class="small text-body-secondary mb-0">Puede tardar hasta un minuto. No cierres la página durante el proceso.</p>
+          <p class="small text-body-secondary mb-0">Puede tardar hasta un minuto. No cierres la página durante el proceso. En el despliegue público el acceso a Drive corre en el equipo del autor y puede haber caducado; si falla, se conservan los documentos ya indexados.</p>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-primary focus-ring" data-bs-dismiss="modal">Cancelar</button>
