@@ -3,8 +3,8 @@
    Estética Neumorfismo (Soft UI): las superficies comparten el mismo tono que
    el fondo y se definen con dos luces suaves (clara arriba-izquierda, oscura
    abajo-derecha). Los controles se hunden (inset) al pulsarse o enfocarse.
-   Base en penumbra clara (#262630): oscura pero aireada, con sombras bajas
-   profundas que conservan el tono oscuro del relieve.
+   Base grafito clara (#333339): neutra, sin tinte azulado, claramente más
+   luminosa, con sombras casi negras que conservan el tono oscuro del relieve.
    Se conservan los acentos pastel para estados y tipos de archivo.
    Aprovecha los color modes nativos de Bootstrap 5.3 (data-bs-theme) y sus
    variables --bs-* en lugar de sobreescribir componentes a mano.
@@ -15,16 +15,17 @@
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 
   /* Neumorfismo: una superficie base y dos luces para esculpir el volumen.
-     Base aclarada un paso para airear el conjunto; la sombra baja sigue
-     oscura, así el relieve se marca más y se conserva el tono general. */
-  --nn-base: #262630;
-  --nn-light: #3b3b4a;
-  --nn-dark: #121216;
+     Base grafito aclarada; la luz superior es más brillante y la sombra baja
+     se acerca al negro puro, así el relieve se marca sin perder el tono
+     oscuro del conjunto. */
+  --nn-base: #333339;
+  --nn-light: #54545e;
+  --nn-dark: #101013;
   --nn-raised: 8px 8px 18px var(--nn-dark), -8px -8px 18px var(--nn-light);
   --nn-raised-sm: 4px 4px 10px var(--nn-dark), -4px -4px 10px var(--nn-light);
   --nn-inset: inset 6px 6px 14px var(--nn-dark), inset -6px -6px 14px var(--nn-light);
   --nn-inset-sm: inset 3px 3px 8px var(--nn-dark), inset -3px -3px 8px var(--nn-light);
-  --nn-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --nn-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --nn-radius: 18px;
 }
 
@@ -37,23 +38,23 @@ html {
   color-scheme: dark;
 
   --bs-body-bg: var(--nn-base);
-  --bs-body-bg-rgb: 38, 38, 48;
-  --bs-body-color: #eef0f4;
-  --bs-body-color-rgb: 238, 240, 244;
+  --bs-body-bg-rgb: 51, 51, 57;
+  --bs-body-color: #f2f3f5;
+  --bs-body-color-rgb: 242, 243, 245;
   --bs-emphasis-color: #ffffff;
   --bs-emphasis-color-rgb: 255, 255, 255;
-  --bs-secondary-color: #bcbcc9;
-  --bs-secondary-color-rgb: 188, 188, 201;
-  --bs-tertiary-color: #9494a1;
-  --bs-tertiary-color-rgb: 148, 148, 161;
+  --bs-secondary-color: #c4c4cc;
+  --bs-secondary-color-rgb: 196, 196, 204;
+  --bs-tertiary-color: #a1a1ac;
+  --bs-tertiary-color-rgb: 161, 161, 172;
   --bs-secondary-bg: var(--nn-base);
-  --bs-secondary-bg-rgb: 38, 38, 48;
+  --bs-secondary-bg-rgb: 51, 51, 57;
   --bs-tertiary-bg: var(--nn-base);
-  --bs-tertiary-bg-rgb: 38, 38, 48;
-  --bs-border-color: rgba(255, 255, 255, 0.09);
-  --bs-border-color-translucent: rgba(255, 255, 255, 0.08);
-  --bs-link-color: #dcdce4;
-  --bs-link-color-rgb: 220, 220, 228;
+  --bs-tertiary-bg-rgb: 51, 51, 57;
+  --bs-border-color: rgba(255, 255, 255, 0.1);
+  --bs-border-color-translucent: rgba(255, 255, 255, 0.09);
+  --bs-link-color: #e0e0e6;
+  --bs-link-color-rgb: 224, 224, 230;
   --bs-link-hover-color: #ffffff;
   --bs-link-hover-color-rgb: 255, 255, 255;
 
@@ -340,9 +341,9 @@ body {
   border-radius: 6px;
   background: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.05) 0%,
-    rgba(255, 255, 255, 0.12) 50%,
-    rgba(255, 255, 255, 0.05) 100%
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.14) 50%,
+    rgba(255, 255, 255, 0.06) 100%
   );
   background-size: 200% 100%;
   animation: skeleton-pulse 1.4s ease-in-out infinite;
@@ -398,7 +399,7 @@ body {
   --bs-btn-active-color: #0b0b0d;
   --bs-btn-active-bg: #96dcc0;
   --bs-btn-active-border-color: transparent;
-  --bs-btn-disabled-color: #9494a1;
+  --bs-btn-disabled-color: #a1a1ac;
   --bs-btn-disabled-bg: var(--nn-base);
   --bs-btn-disabled-border-color: transparent;
   --bs-btn-focus-shadow-rgb: 168, 230, 207;
@@ -414,7 +415,7 @@ body {
   --bs-btn-active-color: var(--pastel-sky);
   --bs-btn-active-bg: var(--nn-base);
   --bs-btn-active-border-color: transparent;
-  --bs-btn-disabled-color: #9494a1;
+  --bs-btn-disabled-color: #a1a1ac;
   --bs-btn-disabled-bg: var(--nn-base);
   --bs-btn-disabled-border-color: transparent;
   --bs-btn-focus-shadow-rgb: 169, 201, 240;
@@ -430,7 +431,7 @@ body {
   box-shadow: var(--nn-inset-sm);
 }
 .form-control::placeholder {
-  color: #6f6f7e;
+  color: #75757f;
 }
 textarea.form-control {
   resize: vertical;
@@ -443,11 +444,11 @@ textarea.form-control {
   box-shadow: var(--nn-inset-sm), 0 0 0 var(--bs-focus-ring-width) rgba(169, 201, 240, 0.28);
 }
 .form-select {
-  --bs-form-select-bg-img: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23b3b3bf' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+  --bs-form-select-bg-img: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23b8b8c2' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
 }
 .form-select option {
   background: var(--nn-base);
-  color: #eef0f4;
+  color: #f2f3f5;
 }
 .form-floating > label {
   color: var(--bs-secondary-color);
@@ -710,7 +711,7 @@ textarea.form-control {
 /* --------------------------------------------------------------------- Toasts */
 .toast {
   --bs-toast-bg: var(--nn-base);
-  --bs-toast-color: #eef0f4;
+  --bs-toast-color: #f2f3f5;
   --bs-toast-border-color: transparent;
   --bs-toast-box-shadow: var(--nn-raised);
   --bs-toast-header-color: var(--bs-secondary-color);
@@ -941,13 +942,13 @@ footer {
 /* --------------------------------------------------- Contraste reforzado */
 @media (prefers-contrast: more) {
   [data-bs-theme="dark"] {
-    --nn-light: #4e4e5f;
+    --nn-light: #6a6a76;
     --nn-dark: #000000;
     --nn-raised: 6px 6px 14px var(--nn-dark), -6px -6px 14px var(--nn-light);
     --nn-inset: inset 4px 4px 10px var(--nn-dark), inset -4px -4px 10px var(--nn-light);
     --bs-secondary-color: #d2d2dd;
     --bs-tertiary-color: #b9b9c6;
-    --bs-border-color: rgba(255, 255, 255, 0.3);
+    --bs-border-color: rgba(255, 255, 255, 0.32);
   }
   .card.shell,
   .doc-list,
@@ -955,7 +956,7 @@ footer {
   .btn,
   .form-control,
   .form-select {
-    outline: 1px solid rgba(255, 255, 255, 0.36);
+    outline: 1px solid rgba(255, 255, 255, 0.38);
     outline-offset: 1px;
   }
 }
